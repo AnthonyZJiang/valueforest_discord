@@ -6,7 +6,6 @@ from discord.utils import _ColourFormatter
 ASHLEY_ID = 1313007325224898580
 ANGELA_ID = 1292300055625203763
 TESTER_ID = 185020620310839296
-ASHLEY_ID = 1337860024864739351
 
 def setup_logging() -> None:
     level = logging.INFO

@@ -84,7 +84,7 @@ class MessageSender(discord.Client):
                 self.option_positions[position.get_id()] = position
                 self.logger.info(f"On message: New option position from {message.author.name} id: {position.get_id()}")
                 await self.send_new_option_summary(position)
-            return
+                return
         else:
             for pos_id, position in self.option_positions.items():
                 author_id, symbol, _, _ = pos_id.split(':')
@@ -96,6 +96,7 @@ class MessageSender(discord.Client):
                 self.logger.info(f"On message: New update for {pos_id} from {message.author.name}")
                 await self.update_option_summary(position)
                 return
+            
         if "https:" in message.content:
             # send attachments to option summary channel anyways.
             await self.send_option_summary_message(message)

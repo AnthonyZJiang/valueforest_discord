@@ -14,13 +14,6 @@ class MessageReceiver(selfcord.Client):
         
     async def on_ready(self):
         self.logger.info(f'Receiver logged on as {self.user}')
-        self.channel = self.get_channel(1337816741052547145)
-        hist = [a async for a in self.channel.history(limit=100)]
-        for message in hist[::-1]:
-            message.content = message_retouch(message)
-            self.logger.info(f"got message {message.content}")
-            self.sender.forward_message(message, -1)
-            await asyncio.sleep(1)
 
     async def on_message(self, message: selfcord.Message):
         if message.channel.id not in self.channels:
