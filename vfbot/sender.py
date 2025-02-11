@@ -30,9 +30,6 @@ class MessageSender(discord.Client):
         self.logger.info(f'Sender logged on as {self.user}')
 
     async def send_message(self, message: discord.Message, channel_id: int):
-        if channel_id == -1:
-            await self.handle_option_messages(message)
-            return
         channel = self.get_cached_channel(channel_id)
         self.logger.info(f"Send message: Sending message {message.id} to {channel.name}")
         for attachment in message.attachments:
