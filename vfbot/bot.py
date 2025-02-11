@@ -21,7 +21,7 @@ class Bot:
         self.logger.info("Config loaded. %d channels to monitor.", len(self.config['channels']))
 
     def run(self):
-        sender = MessageSender()
+        sender = MessageSender(config=self.config)
         receiver = MessageReceiver(config=self.config, sender=sender)
         executor = ThreadPoolExecutor(max_workers=2)
         
