@@ -21,7 +21,7 @@ class MessageReceiver(selfcord.Client):
         config = self.channels[message.channel.id]
         if config['author_ids'] and message.author.id not in config['author_ids']:
             return
-        self.logger.info(f"On message: Received message {message.id} from {message.author.name} in {message.channel.name}.")
+        self.logger.info(f"On message: Received message {message.id} from {message.author.display_name} in {message.channel.name}.")
         target_channel = config.get('target_channel_id')
         if target_channel:
             if config['show_name']:
