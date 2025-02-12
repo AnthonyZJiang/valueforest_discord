@@ -101,7 +101,7 @@ def create_author_id_to_name_mapping(config: dict):
     
     for channel_info in config["channels"].values():
         author_ids = channel_info["author_ids"]
-        author_name = channel_info["author_name"]
+        author_name = channel_info["author_name_override"]
         
         for author_id in author_ids:
             author_mapping[author_id] = author_name
