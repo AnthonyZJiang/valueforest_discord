@@ -1,6 +1,6 @@
-import asyncio
 import logging
 import selfcord
+import asyncio
 
 from .sender import MessageSender
 from .utils import message_retouch
@@ -14,7 +14,7 @@ class MessageReceiver(selfcord.Client):
         
     async def on_ready(self):
         self.logger.info(f'Receiver logged on as {self.user}')
-
+            
     async def on_message(self, message: selfcord.Message):
         if message.channel.id not in self.channels:
             return
@@ -24,5 +24,8 @@ class MessageReceiver(selfcord.Client):
         self.logger.info(f"On message: Received message {message.id} from {message.author.name} in {message.channel.name}.")
         target_channel = config.get('target_channel_id')
         if target_channel:
-            message.content = message_retouch(message)
+            if config['author_name']:
+                message.content = f"【{config['author_name']}】{message.content}"
+            message_retouch(message)
             self.sender.forward_message(message, target_channel)
+ 
