@@ -25,7 +25,7 @@ class MessageReceiver(selfcord.Client):
         target_channel = config.get('target_channel_id')
         if target_channel:
             if config['show_name']:
-                name = config['author_name_override'] if config['author_name_override'] else message.author.name
+                name = config['author_name_override'] if config['author_name_override'] else message.author.display_name
                 message.content = f"【{name}】{message.content}"
             message_retouch(message)
             self.sender.forward_message(message, target_channel)
