@@ -5,6 +5,7 @@ import discord
 
 from .utils import ASHLEY_ID, ANGELA_ID
 
+
 logger = logging.getLogger('vfbot.optionposition')
 
 class OptionPosition:

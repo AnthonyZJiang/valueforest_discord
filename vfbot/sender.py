@@ -3,10 +3,12 @@ import logging
 
 import discord
 
-from .utils import ASHLEY_ID, ANGELA_ID, ocr_image_from_message, create_author_id_to_name_mapping
+from .utils import create_author_id_to_name_mapping
 from .vfmessage import VFMessage
 from .optionposition import OptionPosition
 
+
+logger = logging.getLogger(__name__)
 
 class MessageSender(discord.Client):
     def __init__(self, config: dict):
@@ -16,7 +18,6 @@ class MessageSender(discord.Client):
         intents.message_content = True
         super().__init__(intents=intents)
         
-        self.logger = logging.getLogger(__name__)
         self.channels = {}  # type: dict[int, discord.TextChannel]
         self.author_names = create_author_id_to_name_mapping(config) # type: dict[int, str]
         
@@ -31,11 +32,11 @@ class MessageSender(discord.Client):
         return self.channels[channel_id]
 
     async def on_ready(self):
-        self.logger.info(f'Sender logged on as {self.user}')
+        logger.info(f'Sender logged on as {self.user}')
 
     async def send_message(self, message: VFMessage):
         channel = self.get_cached_channel(message.target_channel_id)
-        self.logger.info(f"Send message: Sending message from {message.dc_msg.channel.name} to {channel.name}")
+        logger.info(f"Send message: Sending message from {message.dc_msg.channel.name} to {channel.name}")
         await channel.send(message.content)
         if message.option_position or message.option_update:
             await self.handle_option_messages(message)
@@ -48,11 +49,11 @@ class MessageSender(discord.Client):
         
     async def new_option_position(self, option_position: OptionPosition):
         self.option_positions[option_position.get_id()] = option_position
-        self.logger.info(f"On message: New option position from {option_position.author_name} id: {option_position.get_id()}")
+        logger.info(f"On message: New option position from {option_position.author_name} id: {option_position.get_id()}")
         await option_position.create_thread(self.get_cached_channel(self.config['option_summary_channel_id']))
                 
     async def handle_option_messages(self, message: VFMessage):
-        self.logger.info(f"On message: Handling option messages from {message.author_name}:\n{message.dc_msg.content}")
+        logger.info(f"On message: Handling option messages from {message.author_name}:\n{message.dc_msg.content}")
         position = None
         if message.option_position and message.option_position.valid:
             if message.option_position.get_id() not in self.option_positions.keys():
@@ -66,13 +67,12 @@ class MessageSender(discord.Client):
             position = self.find_option_position(message.dc_msg.author.id, message.option_update)
             
         if position:
-            self.logger.info(f"On message: Updating option position {position.get_id()}")
+            logger.info(f"On message: Updating option position {position.get_id()}")
             await position.add_to_thread(message.option_update, message.last_price)
         else:
-            self.logger.warning(f"On message: No option position found.")
+            logger.warning(f"On message: No option position found.")
             await self.get_cached_channel(self.config['option_summary_channel_id']).send(message.option_update)
             
-                   
     def find_option_position(self, author_id: int, content: str, strike: int = None, option_type: str = None):
         for pos_id, position in self.option_positions.items():
             _author_id, _symbol, _strike, _option_type = pos_id.split(':')
