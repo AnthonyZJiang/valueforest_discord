@@ -1,5 +1,4 @@
 import logging
-import re
 import requests
 import json
 
@@ -23,30 +22,6 @@ def setup_logging() -> None:
     logger.setLevel(level)
     logger.addHandler(handler)
 
-def retouch_ashley(content: str):
-    content = re.sub(r':RedAlert:|<a:RedAlert:\d+>', ":new:", content)
-    return content
-        
-def retouch_angela(content: str):
-    content = re.sub(r':8375_siren_blue:|<a:8375_siren_blue:\d+>', ":new:", content)
-    content = re.sub(r':RedAlert:|<a:RedAlert:\d+>', ":red_sqare:", content)
-    content = re.sub(r':greensiren:|<a:greensiren:\d+>', ":green_square:", content)
-    return content    
-    
-def message_retouch(message: discord.Message):
-    content = message.content
-    content = content.replace("@c2.ini", "")
-    content = re.sub(r':9655_eyesshaking_new:|<a:9655_eyesshaking_new:\d+>', ":eyes:", content)
-    content = content.replace(":pngwing:", ":red_circle:")
-    content = content.replace(":verifyblue:", ":white_check_mark:")
-    
-    if message.author.id == ASHLEY_ID: # ashley
-        content =retouch_ashley(content)
-    elif message.author.id == ANGELA_ID: # angela
-        content = retouch_angela(content)
-    message.content = content
-    
-
 def ocr_image_from_message(message: discord.Message, api_key: str):
     
     def ocr_space_url(url, api_key, overlay=True, language='eng'):
@@ -59,34 +34,42 @@ def ocr_image_from_message(message: discord.Message, api_key: str):
                         data=payload,
                         )
         return r.content.decode()
+    
+    def str_to_float(s: str):
+        try:
+            s = s.replace("$", "").replace(",", "")
+            return float(s)
+        except:
+            return None
 
     def parse_ocr_result(ocr_result: str):
         ocr_result = json.loads(ocr_result)
         lines = ocr_result['ParsedResults'][0]['TextOverlay']['Lines']
         
-        symbol, strike, option_type, last_price = None, None, None, None
+        symbol, strike, option_type, open_price, last_price = None, None, None, None, None
+        checked = 0
         
         for i, line in enumerate(lines):
             if "Call" in line['LineText'] or "Put" in line['LineText']:
                 call_line = line['LineText']
                 symbol, strike, option_type = call_line.split()
-                strike = strike.replace("$", "").replace(",", "")
-                if strike.isdigit():
-                    strike = float(strike)
-                else:
-                    strike = None
+                strike = str_to_float(strike)
                 option_type = option_type.lower()
                 # Get the next line's text (if it exists and contains a price)
                 if i + 1 < len(lines) and '$' in lines[i + 1]['LineText']:
                     price_line = lines[i + 1]['LineText']
-                    last_price = price_line.replace("$", "").replace(",", "")
-                    if last_price.isdigit():
-                        last_price = float(last_price)
-                    else:
-                        last_price = None
+                    last_price = str_to_float(price_line)
+                    checked += 1
+            elif "Average cost" in line['LineText']:
+                if i + 1 < len(lines) and '$' in lines[i + 1]['LineText']:
+                    price_line = lines[i + 1]['LineText']
+                    open_price = str_to_float(price_line)
+                    checked += 1
+                    
+            if checked == 2:
                 break
-        
-        return symbol, strike, option_type, last_price
+
+        return symbol, strike, option_type, open_price, last_price
     
     loc = message.content.find("https://")
     if loc > -1:

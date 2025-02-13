@@ -2,7 +2,9 @@ import asyncio
 import logging
 
 import discord
+
 from .utils import ASHLEY_ID, ANGELA_ID, ocr_image_from_message, create_author_id_to_name_mapping
+from .vfmessage import VFMessage
 from .optionposition import OptionPosition
 
 
@@ -31,19 +33,16 @@ class MessageSender(discord.Client):
     async def on_ready(self):
         self.logger.info(f'Sender logged on as {self.user}')
 
-    async def send_message(self, message: discord.Message, channel_id: int):
-        channel = self.get_cached_channel(channel_id)
-        self.logger.info(f"Send message: Sending message {message.id} to {channel.name}:\n{message.content}")
-        for attachment in message.attachments:
-            await channel.send(attachment.url)
-        if message.content:
-            await channel.send(message.content)
-        if message.author.id == ASHLEY_ID or message.author.id == ANGELA_ID:
+    async def send_message(self, message: VFMessage):
+        channel = self.get_cached_channel(message.target_channel_id)
+        self.logger.info(f"Send message: Sending message from {message.dc_msg.channel.name} to {channel.name}")
+        await channel.send(message.content)
+        if message.option_position or message.option_update:
             await self.handle_option_messages(message)
             
-    def forward_message(self, message: discord.Message, channel_id: int):
+    def forward_message(self, message: VFMessage):
         asyncio.run_coroutine_threadsafe(
-            self.send_message(message, channel_id),
+            self.send_message(message),
             self.loop
         )
         
@@ -52,56 +51,32 @@ class MessageSender(discord.Client):
         self.logger.info(f"On message: New option position from {option_position.author_name} id: {option_position.get_id()}")
         await option_position.create_thread(self.get_cached_channel(self.config['option_summary_channel_id']))
                 
-    async def handle_option_messages(self, message: discord.Message):
-        self.logger.info(f"On message: Handling option messages from {message.author.name}:\n{message.content}")
-        loc = message.content.find(":new:")
-        if loc > 8: # update message
-            position = OptionPosition.from_text(message.content[loc:], message.author.id)
-            pos_id = position.get_id()
-            if position.valid:
-                if pos_id not in self.option_positions:
-                    await self.new_option_position(position)
-                else:
-                    position = self.option_positions[pos_id]
-                message.content = message.content[:loc].split("||")[0]
-                await position.add_to_thread(message)
-                return
-        elif loc >= 0: # new option position
-            position = OptionPosition.from_text(message.content[loc:], message.author.id)
-            if position.valid:
-                await self.new_option_position(position)
-                return
-        else:
-            position = self.find_option_position(message.author.id, message.content)
-            if position:
-                self.logger.info(f"On message: New update for {position.get_id()} from {message.author.name}")
-                await position.add_to_thread(message)
-                return
-            
-        if ".jpg" in message.content:
-            ocr_result = ocr_image_from_message(message, self.config['ocr_api_key'])
-            if ocr_result:
-                symbol, strike, option_type, last_price = ocr_result
-                position = self.find_option_position(message.author.id, symbol, strike, option_type)
-                if position:
-                    await position.add_to_thread(message, last_price)
-                    return
-                position = OptionPosition(author_id=message.author.id, 
-                                          symbol=symbol, 
-                                          strike=strike, 
-                                          call_put=option_type, 
-                                          open_price=last_price, 
-                                          text=message.content)
-                if position.valid:
-                    await self.new_option_position(position)
-                    return
+    async def handle_option_messages(self, message: VFMessage):
+        self.logger.info(f"On message: Handling option messages from {message.author_name}:\n{message.dc_msg.content}")
+        position = None
+        if message.option_position and message.option_position.valid:
+            if message.option_position.get_id() not in self.option_positions.keys():
+                await self.new_option_position(message.option_position)               
+            position = self.option_positions[message.option_position.get_id()]
+
+        if not message.option_update:
+            return
         
-        await self.get_cached_channel(self.config['option_summary_channel_id']).send(f'{self.author_names[message.author.id]}: {message.content}')
+        if not position:
+            position = self.find_option_position(message.dc_msg.author.id, message.option_update)
             
-    def find_option_position(self, author_id: int, symbol: str, strike: int = None, option_type: str = None):
+        if position:
+            self.logger.info(f"On message: Updating option position {position.get_id()}")
+            await position.add_to_thread(message.option_update, message.last_price)
+        else:
+            self.logger.warning(f"On message: No option position found.")
+            await self.get_cached_channel(self.config['option_summary_channel_id']).send(message.option_update)
+            
+                   
+    def find_option_position(self, author_id: int, content: str, strike: int = None, option_type: str = None):
         for pos_id, position in self.option_positions.items():
             _author_id, _symbol, _strike, _option_type = pos_id.split(':')
-            if str(author_id) != _author_id or _symbol not in symbol:
+            if str(author_id) != _author_id or _symbol not in content:
                 continue
             if strike and str(strike) != _strike:
                 continue
@@ -109,5 +84,4 @@ class MessageSender(discord.Client):
                 continue
             return position
         return None
-    
     
