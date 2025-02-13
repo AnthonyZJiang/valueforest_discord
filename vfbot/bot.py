@@ -28,7 +28,7 @@ class Bot:
         self.logger = logging.getLogger(__name__)
         self.logger.info("Bot version: %s", VERSION)
     
-        self.config = json.load(open('config.real.json'))
+        self.config = json.load(open('config.json'))
         self.config['channels'] = {int(k): v for k, v in self.config['channels'].items()}
         self.logger.info("Config loaded. %d channels to monitor.", len(self.config['channels']))
 
