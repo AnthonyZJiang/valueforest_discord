@@ -48,8 +48,10 @@ class MessageReceiver(selfcord.Client):
             msg = VFMessage(message, config)
             self.sender.forward_message(msg)
             await asyncio.sleep(rate)
+        logger.info(f"Forwarded {len(hist)} messages from {from_channel_id} to {to_channel_id}.")
         
     async def forward_history_messages(self, after: datetime, rate: int = 2):
         channels = list(self.channels.keys())
         for id in channels:
             await self.forward_history_messages_by_channel(id, self.channels[id]['target_channel_id'], after, rate)
+        logger.info(f"All history messages forwarded.")
