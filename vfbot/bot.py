@@ -18,8 +18,24 @@ def parse_date_arg(arg: str) -> datetime:
     if arg == 'yesterday':
         yesterday = datetime.now().date() - timedelta(days=1)
         return datetime.combine(yesterday, time.min)
-    else:
-        return datetime.strptime(arg, '%Y-%m-%d %H:%M:%S')
+
+    parts = arg.split(' ', 1)
+    if parts[0] in ['today', 'yesterday']:
+        date_part = parts[0]
+        time_part = parts[1]
+
+        if date_part == 'today':
+            base_date = datetime.now().date()
+        elif date_part == 'yesterday':
+            base_date = datetime.now().date() - timedelta(days=1)
+        else:
+            return datetime.strptime(arg, '%Y-%m-%d %H:%M:%S')
+        
+        try:
+            time_obj = datetime.strptime(time_part, '%H:%M:%S').time()
+            return datetime.combine(base_date, time_obj)
+        except ValueError:
+            raise ValueError(f"Time must be in HH:MM:SS format, got: {time_part}")
 
 
 class Bot:
@@ -36,7 +52,6 @@ class Bot:
         sender = MessageSender(config=self.config)
         receiver = MessageReceiver(config=self.config, sender=sender)
         
-        # Parse forward_history_since argument if provided
         if 'forward_history_since' in kwargs:
             receiver.forward_history_since = parse_date_arg(kwargs['forward_history_since'])
         

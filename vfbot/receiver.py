@@ -6,15 +6,17 @@ import selfcord
 
 from .sender import MessageSender
 from .vfmessage import VFMessage
-
+from .utils import get_config_value
 
 logger = logging.getLogger(__name__)
 
 class MessageReceiver(selfcord.Client):
     def __init__(self, config: dict, sender: MessageSender):
         super().__init__()
-        self.ocr_api_key = config['ocr_api_key']
-        self.channels = config['channels']
+        self.ocr_api_key = get_config_value(config, 'ocr_api_key')
+        self.channels = get_config_value(config, 'channels')
+        if not self.ocr_api_key or not self.channels:
+            raise ValueError('Missing required config values')
         self.sender = sender
         self.forward_history_since = None
         
@@ -55,3 +57,11 @@ class MessageReceiver(selfcord.Client):
         for id in channels:
             await self.forward_history_messages_by_channel(id, self.channels[id]['target_channel_id'], after, rate)
         logger.info(f"All history messages forwarded.")
+        
+    def set_config(self, message: selfcord.Message):
+        config = self.channels[message.channel.id]
+        if config['author_ids'] and message.author.id not in config['author_ids']:
+            return
+        logger.info(f"On message: Received message {message.id} from {message.author.display_name} in {message.channel.name}.")
+        config['ocr_api_key'] = self.ocr_api_key
+        return config

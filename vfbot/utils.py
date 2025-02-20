@@ -90,3 +90,8 @@ def create_author_id_to_name_mapping(config: dict):
             author_mapping[author_id] = author_name
     
     return author_mapping
+
+def get_config_value(config: dict, key: str, default = None):
+    if key in config:
+        return config[key]
+    return default
