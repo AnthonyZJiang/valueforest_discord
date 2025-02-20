@@ -54,6 +54,7 @@ class Bot:
         
         if 'forward_history_since' in kwargs:
             receiver.forward_history_since = parse_date_arg(kwargs['forward_history_since'])
+            self.logger.info("Forwarding history messages since %s", receiver.forward_history_since)
         
         executor = ThreadPoolExecutor(max_workers=2)
         

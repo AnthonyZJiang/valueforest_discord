@@ -44,6 +44,8 @@ def ocr_image_from_message(message: discord.Message, api_key: str):
 
     def parse_ocr_result(ocr_result: str):
         ocr_result = json.loads(ocr_result)
+        if 'ParsedResults' not in ocr_result:
+            return None
         lines = ocr_result['ParsedResults'][0]['TextOverlay']['Lines']
         
         symbol, strike, option_type, open_price, last_price = None, None, None, None, None
