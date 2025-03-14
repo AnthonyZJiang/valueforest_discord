@@ -5,7 +5,6 @@ import discord
 
 from .utils import create_author_id_to_name_mapping
 from .vfmessage import VFMessage
-from .optionposition import OptionPosition
 
 
 logger = logging.getLogger(__name__)
@@ -20,8 +19,6 @@ class MessageSender(discord.Client):
         
         self.channels = {}  # type: dict[int, discord.TextChannel]
         self.author_names = create_author_id_to_name_mapping(config) # type: dict[int, str]
-        
-        self.option_positions = {} #type: dict[str, OptionPosition]
         
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)

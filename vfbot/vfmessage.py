@@ -1,8 +1,7 @@
 import discord
 import re
 
-from .utils import ASHLEY_ID, ANGELA_ID, ocr_image_from_message
-from .optionposition import OptionPosition
+from .utils import ASHLEY_ID, ANGELA_ID
 
 class VFMessage:
     def __init__(self, message: discord.Message, config: dict):
@@ -18,7 +17,6 @@ class VFMessage:
         self.option_update = None
         self.last_price = None
         self.beautify()
-        self.construct_option_position()
         
     @property
     def content(self) -> str:
@@ -48,34 +46,6 @@ class VFMessage:
             self.beautify_ashley()
         elif self.dc_msg.author.id == ANGELA_ID: # angela
             self.beautify_angela()
-            
-    def construct_option_position(self):
-        if self.dc_msg.author.id != ASHLEY_ID and self.dc_msg.author.id != ANGELA_ID:
-            return
-        loc = self._content.find(":new:")
-        if loc > -1:
-            self.option_position = OptionPosition.from_text(self._content[loc:], self.dc_msg.author.id)
-        if loc > 5:
-            self.option_update = self._content[:loc].split("||")[0].strip()
-        if loc == -1:
-            self.option_update = self._content.strip()
-            
-        if self.option_update:  
-            if dollar_amounts := re.findall(r'\$(\d+\.\d+)', self.option_update):
-                self.last_price = min(dollar_amounts)
-            
-        if ".jpg" in self._content:
-            ocr_result = ocr_image_from_message(self.dc_msg, self.config['ocr_api_key'])
-            if ocr_result:
-                symbol, strike, option_type, open_price, last_price = ocr_result
-                if not open_price:
-                    open_price = last_price
-                if not self.option_position:
-                    self.option_position = OptionPosition(self.dc_msg.author.id, symbol, strike, option_type, open_price, self._content)
-                elif self.option_position.open_price is None:
-                    self.option_position.open_price = open_price
-                self.option_update = self._content
-                self.last_price = last_price
                 
     def beautify_ashley(self) -> str:
         self._content = re.sub(r':RedAlert:|<a:RedAlert:\d+>', ":new:", self._content)
