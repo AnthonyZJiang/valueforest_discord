@@ -38,8 +38,16 @@ class MessageSender(discord.Client):
         channel = self.get_cached_channel(message.target_channel_id)
         logger.info(f"Send message: Sending message from {message.dc_msg.channel.name} to {channel.name}")
         await channel.send(message.content)
-        if message.option_position or message.option_update:
-            await self.handle_option_messages(message)
+            
+    async def delete_messages(self, message: discord.Message):
+        if message:
+            await message.delete()
+    
+    def forward_message_to_delete(self, message: discord.Message):
+        asyncio.run_coroutine_threadsafe(
+            self.delete_messages(message),
+            self.loop
+        )
             
     def forward_message(self, message: VFMessage):
         asyncio.run_coroutine_threadsafe(
