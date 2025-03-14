@@ -13,8 +13,6 @@ class VFMessage:
         self.author_name = self.config['author_name_override'] if self.config['author_name_override'] else self.dc_msg.author.display_name
         self.credit = self.dc_msg.jump_url
         
-        self.option_position = None
-        self.option_update = None
         self.last_price = None
         self.beautify()
         
