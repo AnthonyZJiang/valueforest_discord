@@ -47,7 +47,7 @@ def get_config_value(config: dict, key: str, default = None):
 
 def translate(message: str) -> str:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.settimeout(2)
+        s.settimeout(10)
         s.connect((TRANSLATE_HOST, TRANSLATE_PORT))
         s.sendall(message.encode())
         response = s.recv(1024)
