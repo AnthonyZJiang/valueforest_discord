@@ -1,19 +1,46 @@
 import logging
-import selfcord
 import asyncio
+from datetime import datetime
+import random
+import selfcord
 
 from .sender import MessageSender
-from .utils import message_retouch
+from .vfmessage import VFMessage
+from .utils import get_config_value
+
+logger = logging.getLogger(__name__)
 
 class MessageReceiver(selfcord.Client):
     def __init__(self, config: dict, sender: MessageSender):
         super().__init__()
-        self.logger = logging.getLogger('vfbot.rx')
-        self.channels = config['channels']
+        self.channels = get_config_value(config, 'channels')
+        if not self.channels:
+            raise ValueError('Missing required config values')
         self.sender = sender
+        self.forward_history_since = None
         
     async def on_ready(self):
-        self.logger.info(f'Receiver logged on as {self.user}')
+        logger.info(f'Receiver logged on as {self.user}')
+        if self.forward_history_since:
+            logger.info(f"Forwarding messages since {self.forward_history_since}")
+            await self.forward_history_messages(after=self.forward_history_since)
+        
+    async def delete_duplicate_messages(self, since: datetime):
+        # usage: await self.delete_duplicate_messages(since=datetime(2025, 3, 10, 19, 0))
+        messages = []
+        for channel in self.channels:
+            channel_id = self.channels[channel]['target_channel_id']
+            channel = self.get_channel(channel_id)
+            hist = [msg async for msg in channel.history(limit=100, after=since, oldest_first=True)]
+            for message in hist:
+                if message.content in messages:
+                    self.sender.forward_message_to_delete(message)
+                    await message.delete()
+                    logger.info(f"Deleted duplicate message from {channel.name}: {message.content}")
+                    await asyncio.sleep(random.uniform(2, 5))
+                else:
+                    messages.append(message.content)
+        logger.info(f"Duplicate messages deleted.")
             
     async def on_message(self, message: selfcord.Message):
         if message.channel.id not in self.channels:
@@ -21,12 +48,22 @@ class MessageReceiver(selfcord.Client):
         config = self.channels[message.channel.id]
         if config['author_ids'] and message.author.id not in config['author_ids']:
             return
-        self.logger.info(f"On message: Received message {message.id} from {message.author.display_name} in {message.channel.name}.")
-        target_channel = config.get('target_channel_id')
-        if target_channel:
-            if config['show_name']:
-                name = config['author_name_override'] if config['author_name_override'] else message.author.display_name
-                message.content = f"【{name}】{message.content}"
-            message_retouch(message)
-            self.sender.forward_message(message, target_channel)
- 
+        logger.info(f"On message: Received message {message.id} from {message.author.display_name} in {message.channel.name}.")
+        msg = VFMessage.from_dc_msg(message, config)
+        self.sender.forward_message(msg)
+        
+    async def forward_history_messages_by_channel(self, from_channel_id: int, after: datetime, rate: int = 2):
+        logger.info(f"Forwarding history messages from {from_channel_id} after {after}.")
+        channel = self.get_channel(from_channel_id)
+        hist = [msg async for msg in channel.history(limit=100, after=after, oldest_first=True)]
+        for message in hist:
+            await self.on_message(message)
+            await asyncio.sleep(rate)
+        logger.info(f"Forwarded {len(hist)} messages from {from_channel_id}.")
+        
+    async def forward_history_messages(self, after: datetime, rate: int = 2):
+        channels = list(self.channels.keys())
+        for id in channels:
+            await self.forward_history_messages_by_channel(id, self.channels[id]['target_channel_id'], after, rate)
+        logger.info(f"All history messages forwarded.")
+        
