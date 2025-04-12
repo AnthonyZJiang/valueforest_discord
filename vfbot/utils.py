@@ -1,13 +1,19 @@
 import logging
-import requests
-import json
+import socket
+import os
+import dotenv
 
-import discord
 from discord.utils import _ColourFormatter
 
 ASHLEY_ID = 1313007325224898580
 ANGELA_ID = 1313008328229785640
 TESTER_ID = 185020620310839296
+
+dotenv.load_dotenv()
+
+TRANSLATE_HOST = os.getenv('TRANSLATE_HOST')
+TRANSLATE_PORT = int(os.getenv('TRANSLATE_PORT'))
+
 
 def setup_logging() -> None:
     level = logging.INFO
@@ -38,3 +44,11 @@ def get_config_value(config: dict, key: str, default = None):
     if key in config:
         return config[key]
     return default
+
+def translate(message: str) -> str:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.settimeout(2)
+        s.connect((TRANSLATE_HOST, TRANSLATE_PORT))
+        s.sendall(message.encode())
+        response = s.recv(1024)
+        return response.decode()

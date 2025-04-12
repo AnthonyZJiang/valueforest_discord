@@ -13,9 +13,8 @@ logger = logging.getLogger(__name__)
 class MessageReceiver(selfcord.Client):
     def __init__(self, config: dict, sender: MessageSender):
         super().__init__()
-        self.ocr_api_key = get_config_value(config, 'ocr_api_key')
         self.channels = get_config_value(config, 'channels')
-        if not self.ocr_api_key or not self.channels:
+        if not self.channels:
             raise ValueError('Missing required config values')
         self.sender = sender
         self.forward_history_since = None
@@ -35,7 +34,7 @@ class MessageReceiver(selfcord.Client):
             hist = [msg async for msg in channel.history(limit=100, after=since, oldest_first=True)]
             for message in hist:
                 if message.content in messages:
-                    # self.sender.forward_message_to_delete(message)
+                    self.sender.forward_message_to_delete(message)
                     await message.delete()
                     logger.info(f"Deleted duplicate message from {channel.name}: {message.content}")
                     await asyncio.sleep(random.uniform(2, 5))
@@ -50,25 +49,17 @@ class MessageReceiver(selfcord.Client):
         if config['author_ids'] and message.author.id not in config['author_ids']:
             return
         logger.info(f"On message: Received message {message.id} from {message.author.display_name} in {message.channel.name}.")
-        config['ocr_api_key'] = self.ocr_api_key
-        msg = VFMessage(message, config)
+        msg = VFMessage.from_dc_msg(message, config)
         self.sender.forward_message(msg)
         
-    async def forward_history_messages_by_channel(self, from_channel_id: int, to_channel_id: int, after: datetime, rate: int = 2):
-        logger.info(f"Forwarding history messages from {from_channel_id} to {to_channel_id} after {after}.")
+    async def forward_history_messages_by_channel(self, from_channel_id: int, after: datetime, rate: int = 2):
+        logger.info(f"Forwarding history messages from {from_channel_id} after {after}.")
         channel = self.get_channel(from_channel_id)
         hist = [msg async for msg in channel.history(limit=100, after=after, oldest_first=True)]
         for message in hist:
-            config = self.channels[message.channel.id]
-            if config['author_ids'] and message.author.id not in config['author_ids']:
-                continue
-            logger.info(f"History message: Forwarding message {message.id} from {message.author.display_name} in {message.channel.name} to {to_channel_id}.")
-            config['target_channel_id'] = to_channel_id
-            config['ocr_api_key'] = self.ocr_api_key
-            msg = VFMessage(message, config)
-            self.sender.forward_message(msg)
+            await self.on_message(message)
             await asyncio.sleep(rate)
-        logger.info(f"Forwarded {len(hist)} messages from {from_channel_id} to {to_channel_id}.")
+        logger.info(f"Forwarded {len(hist)} messages from {from_channel_id}.")
         
     async def forward_history_messages(self, after: datetime, rate: int = 2):
         channels = list(self.channels.keys())
@@ -76,10 +67,3 @@ class MessageReceiver(selfcord.Client):
             await self.forward_history_messages_by_channel(id, self.channels[id]['target_channel_id'], after, rate)
         logger.info(f"All history messages forwarded.")
         
-    def set_config(self, message: selfcord.Message):
-        config = self.channels[message.channel.id]
-        if config['author_ids'] and message.author.id not in config['author_ids']:
-            return
-        logger.info(f"On message: Received message {message.id} from {message.author.display_name} in {message.channel.name}.")
-        config['ocr_api_key'] = self.ocr_api_key
-        return config
