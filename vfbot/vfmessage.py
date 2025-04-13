@@ -1,7 +1,6 @@
 import discord
 import re
 import logging
-from bs4 import BeautifulSoup
 from datetime import datetime
 from .utils import ASHLEY_ID, ANGELA_ID
 
@@ -10,8 +9,6 @@ logger = logging.getLogger(__name__)
 
 
 class VFMessage:
-    DISCORD_FILE_LIMIT = 10 * 1024 * 1024  # 10MB in bytes
-    
     def __init__(self, content: str, config: dict):
         self._content = content
         self.config = config
@@ -52,12 +49,11 @@ class VFMessage:
     @staticmethod
     def from_truth_status(status: dict, config: dict):        
         date_time = datetime.fromisoformat(status['created_at'])
-        content = f'{status["content"]}\n{" | ".join(status["content_attachments"])}'.strip()
-        content = f'[{date_time.strftime("%Y-%m-%d %H:%M:%S")} UTC]({status["uri"]}): {content}'.strip()
+        content = f'[{date_time.strftime("%Y-%m-%d %H:%M:%S")} UTC]({status["uri"]}): {status["content"]}'.strip()
         
         msg = VFMessage(content, config)
         msg.author_name = status['account']['display_name']
-        msg.attachments = status['attachments']
+        msg.attachments = status['discord_attachments']
         return msg
         
     @property
