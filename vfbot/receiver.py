@@ -17,6 +17,8 @@ class MessageReceiver(selfcord.Client):
         if not self.channels:
             logger.warning('Missing required config values')
             return
+        
+        logger.info("Config loaded. %d channels to monitor.", len(self.channels))
         self.sender = sender
         self.forward_history_since = None
         
