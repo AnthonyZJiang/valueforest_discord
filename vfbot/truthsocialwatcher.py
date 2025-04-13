@@ -28,8 +28,7 @@ class TruthSocialWatcher:
                 TruthUser(user_id, users[user_id], pull_since)
                 for user_id in users
             ]
-                
-        if not self.users:
+        else:
             logger.warning("No users found in config")
             return
         self.api = Api()
