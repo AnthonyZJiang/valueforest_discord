@@ -23,10 +23,11 @@ class TruthSocialWatcher:
     def __init__(self, config: dict, sender: MessageSender, pull_since: datetime = None):
         self.config = config
         self.sender = sender
-        self.users = [
-            TruthUser(user_id, self.config['truth_social_users'][user_id], pull_since)
-            for user_id in self.config['truth_social_users']
-        ]
+        if users := self.config.get('truth_social_users'):
+            self.users = [
+                TruthUser(user_id, users[user_id], pull_since)
+                for user_id in users
+            ]
                 
         if not self.users:
             logger.warning("No users found in config")
