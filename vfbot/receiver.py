@@ -15,7 +15,7 @@ class MessageReceiver(selfcord.Client):
         super().__init__()
         self.channels = get_config_value(config, 'channels')
         if not self.channels:
-            logger.warning('Missing required config values')
+            logger.warning('No channels to monitor.')
             return
         
         logger.info("Config loaded. %d channels to monitor.", len(self.channels))
