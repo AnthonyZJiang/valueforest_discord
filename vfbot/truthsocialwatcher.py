@@ -50,7 +50,7 @@ class TruthSocialWatcher:
             try:
                 posts = []
                 for post in self.api.pull_statuses(user_id=user.user_id, created_after=user.last_status_pull):
-                    post.append(post)
+                    posts.append(post)
                 # import json
                 # with open('trump_dump.json', 'r') as f:
                 #     posts = json.load(f)
