@@ -33,18 +33,6 @@ def setup_logging() -> None:
     logger.setLevel(level)
     logger.addHandler(handler)
 
-def create_author_id_to_name_mapping(config: dict):
-    author_mapping = {}
-    
-    for channel_info in config["channels"].values():
-        author_ids = channel_info["author_ids"]
-        author_name = channel_info["author_name_override"]
-        
-        for author_id in author_ids:
-            author_mapping[author_id] = author_name
-    
-    return author_mapping
-
 def get_config_value(config: dict, key: str, default = None):
     if key in config:
         return config[key]

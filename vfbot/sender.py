@@ -3,7 +3,6 @@ import logging
 
 import discord
 
-from .utils import create_author_id_to_name_mapping
 from .vfmessage import VFMessage
 
 
@@ -18,7 +17,6 @@ class MessageSender(discord.Client):
         super().__init__(intents=intents)
         
         self.channels = {}  # type: dict[int, discord.TextChannel]
-        self.author_names = create_author_id_to_name_mapping(config) # type: dict[int, str]
         
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
