@@ -15,7 +15,8 @@ class MessageReceiver(selfcord.Client):
         super().__init__()
         self.channels = get_config_value(config, 'channels')
         if not self.channels:
-            raise ValueError('Missing required config values')
+            logger.warning('Missing required config values')
+            return
         self.sender = sender
         self.forward_history_since = None
         

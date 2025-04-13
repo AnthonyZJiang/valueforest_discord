@@ -23,13 +23,16 @@ class TruthSocialWatcher:
     def __init__(self, config: dict, sender: MessageSender, pull_since: datetime = None):
         self.config = config
         self.sender = sender
-        self.users: list[TruthUser] = []
+        self.users = [
+            TruthUser(user_id, self.config['truth_social_users'][user_id], pull_since)
+            for user_id in self.config['truth_social_users']
+        ]
+                
+        if not self.users:
+            logger.warning("No users found in config")
+            return
         self.api = Api()
         self.post_builder = TruthPostBuilder()
-
-        for user_id in self.config['truth_social_users']:
-            self.users.append(
-                TruthUser(user_id, self.config['truth_social_users'][user_id], pull_since))
 
         self.interval = 60 * len(self.users)
         logger.info(
