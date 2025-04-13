@@ -53,10 +53,13 @@ class Bot:
         receiver = MessageReceiver(config=self.config, sender=sender)
         
         if 'forward_history_since' in kwargs:
-            receiver.forward_history_since = parse_date_arg(kwargs['forward_history_since'])
-            self.logger.info("Forwarding history messages since %s", receiver.forward_history_since)
-        
-        truth_watcher = TruthSocialWatcher(config=self.config, sender=sender, pull_since=receiver.forward_history_since)
+            forward_history_since = parse_date_arg(kwargs['forward_history_since'])
+            self.logger.info("Forwarding history messages since %s", forward_history_since)
+        else:
+            forward_history_since = None
+            
+        receiver.forward_history_since = forward_history_since
+        truth_watcher = TruthSocialWatcher(config=self.config, sender=sender, pull_since=forward_history_since)
         
         executor = ThreadPoolExecutor(max_workers=2)
         
