@@ -52,7 +52,7 @@ class TruthSocialWatcher:
         for user in self.users:
             try:
                 posts = []
-                for post in self.api.pull_statuses(user_id=user.user_id, created_after=user.last_status_pull):
+                for post in self.api.pull_statuses(user_id=user.user_id, created_after=user.last_status_pull, verbose=True):
                     posts.append(post)
                 logger.info(f"Pulled {len(posts)} posts.")
                 # import json
