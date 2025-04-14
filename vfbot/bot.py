@@ -47,6 +47,8 @@ class Bot:
         self.logger.info("Bot version: %s", VERSION)
     
         self.config = json.load(open('config.json'))
+        if 'channels' in self.config:
+            self.config['channels'] = {int(k): v for k, v in self.config['channels'].items()}
 
     def run(self, **kwargs):
         sender = MessageSender(config=self.config)

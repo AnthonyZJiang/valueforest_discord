@@ -52,9 +52,9 @@ class MessageReceiver(selfcord.Client):
     async def on_message(self, message: selfcord.Message):
         if not self.channels:
             return
-        if str(message.channel.id) not in self.channels:
+        if message.channel.id not in self.channels:
             return
-        config = self.channels[str(message.channel.id)]
+        config = self.channels[message.channel.id]
         if config['author_ids'] and message.author.id not in config['author_ids']:
             return
         logger.info(f"On message: Received message {message.id} from {message.author.display_name} in {message.channel.name}.")
@@ -73,6 +73,6 @@ class MessageReceiver(selfcord.Client):
     async def forward_history_messages(self, after: datetime, rate: int = 2):
         channels = list(self.channels.keys())
         for id in channels:
-            await self.forward_history_messages_by_channel(int(id), after, rate)
+            await self.forward_history_messages_by_channel(id, after, rate)
         logger.info(f"All history messages forwarded.")
         
