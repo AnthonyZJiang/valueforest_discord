@@ -54,14 +54,17 @@ class TruthSocialWatcher:
                 posts = []
                 for post in self.api.pull_statuses(user_id=user.user_id, created_after=user.last_status_pull):
                     posts.append(post)
+                logger.info(f"Pulled {len(posts)} posts.")
                 # import json
                 # with open('trump_dump.json', 'r') as f:
                 #     posts = json.load(f)
                 #     posts = posts[:-3]
                 for post in posts[::-1]:
                     try:
+                        logger.info(f"Building post {post['id']}")
                         post = self.post_builder.build_post(post)
                         msg = VFMessage.from_truth_status(post, user.config)
+                        logger.info(f"Forwarding post {post['id']}")
                         self.sender.forward_message(msg)
                         if len(post) > 5:
                             time.sleep(1)
