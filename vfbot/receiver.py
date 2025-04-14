@@ -67,6 +67,6 @@ class MessageReceiver(selfcord.Client):
     async def forward_history_messages(self, after: datetime, rate: int = 2):
         channels = list(self.channels.keys())
         for id in channels:
-            await self.forward_history_messages_by_channel(id, self.channels[id]['target_channel_id'], after, rate)
+            await self.forward_history_messages_by_channel(id, after, rate)
         logger.info(f"All history messages forwarded.")
         
