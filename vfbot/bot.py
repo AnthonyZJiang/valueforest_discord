@@ -64,13 +64,13 @@ class Bot:
         executor = ThreadPoolExecutor(max_workers=2)
         
         sender_future = executor.submit(sender.run, self.config['bot_token'])
-        # receiver_future = executor.submit(receiver.run, self.config['self_token'])
+        receiver_future = executor.submit(receiver.run, self.config['self_token'])
         truth_watcher_future = executor.submit(truth_watcher.run)
         
         self.logger.info("Starting bot...")
         try:
             sender_future.result()
-            # receiver_future.result()
+            receiver_future.result()
             truth_watcher_future.result()
         except KeyboardInterrupt:
             self.logger.info("Ctrl+C again to shut down...")
