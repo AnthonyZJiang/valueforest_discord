@@ -20,13 +20,13 @@ class MessageReceiver(selfcord.Client):
         
         logger.info("Config loaded. %d channels to monitor.", len(self.channels))
         self.sender = sender
-        self.forward_history_since = None
+        self.pull_since = None
         
     async def on_ready(self):
         logger.info(f'Receiver logged on as {self.user}')
-        if self.forward_history_since:
-            logger.info(f"Forwarding messages since {self.forward_history_since}")
-            await self.forward_history_messages(after=self.forward_history_since)
+        if self.pull_since:
+            logger.info(f"Forwarding messages since {self.pull_since}")
+            await self.forward_history_messages(after=self.pull_since)
         
     async def delete_duplicate_messages(self, since: datetime):
         # usage: await self.delete_duplicate_messages(since=datetime(2025, 3, 10, 19, 0))
