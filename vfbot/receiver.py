@@ -13,9 +13,8 @@ logger = logging.getLogger(__name__)
 class MessageReceiver(selfcord.Client):
     def __init__(self, config: dict, sender: MessageSender):
         super().__init__()
-        self.ocr_api_key = get_config_value(config, 'ocr_api_key')
         self.channels = get_config_value(config, 'channels')
-        if not self.ocr_api_key or not self.channels:
+        if not self.channels:
             raise ValueError('Missing required config values')
         self.sender = sender
         self.forward_history_since = None
@@ -50,7 +49,6 @@ class MessageReceiver(selfcord.Client):
         if config['author_ids'] and message.author.id not in config['author_ids']:
             return
         logger.info(f"On message: Received message {message.id} from {message.author.display_name} in {message.channel.name}.")
-        config['ocr_api_key'] = self.ocr_api_key
         msg = VFMessage(message, config)
         self.sender.forward_message(msg)
         
@@ -64,7 +62,6 @@ class MessageReceiver(selfcord.Client):
                 continue
             logger.info(f"History message: Forwarding message {message.id} from {message.author.display_name} in {message.channel.name} to {to_channel_id}.")
             config['target_channel_id'] = to_channel_id
-            config['ocr_api_key'] = self.ocr_api_key
             msg = VFMessage(message, config)
             self.sender.forward_message(msg)
             await asyncio.sleep(rate)
@@ -81,5 +78,4 @@ class MessageReceiver(selfcord.Client):
         if config['author_ids'] and message.author.id not in config['author_ids']:
             return
         logger.info(f"On message: Received message {message.id} from {message.author.display_name} in {message.channel.name}.")
-        config['ocr_api_key'] = self.ocr_api_key
         return config
