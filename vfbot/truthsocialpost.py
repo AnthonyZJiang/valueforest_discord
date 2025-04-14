@@ -163,6 +163,8 @@ class TruthPostBuilder:
             ).rstrip()
 
         main_text_translation = translation['main_text']
+        if main_text_translation:
+            main_text_translation = main_text_translation.replace('（', '(').replace('）', ')')
         reblog_translation = translation['reblog_text']
         quote_translation = translation['quoted_text']
         text = (
