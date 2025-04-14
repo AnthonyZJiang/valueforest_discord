@@ -25,7 +25,7 @@ class MessageReceiver(selfcord.Client):
     async def on_ready(self):
         if not self.channels:
             logger.warning('No channels to monitor.')
-            self.close()
+            await self.close()
             return
         logger.info(f'Receiver logged on as {self.user}')
         if self.pull_since:
