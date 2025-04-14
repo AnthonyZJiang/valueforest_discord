@@ -23,6 +23,10 @@ class MessageReceiver(selfcord.Client):
         self.pull_since = None
         
     async def on_ready(self):
+        if not self.channels:
+            logger.warning('No channels to monitor.')
+            self.close()
+            return
         logger.info(f'Receiver logged on as {self.user}')
         if self.pull_since:
             logger.info(f"Forwarding messages since {self.pull_since}")
