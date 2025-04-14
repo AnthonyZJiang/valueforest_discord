@@ -50,6 +50,8 @@ class MessageReceiver(selfcord.Client):
         logger.info(f"Duplicate messages deleted.")
             
     async def on_message(self, message: selfcord.Message):
+        if not self.channels:
+            return
         if str(message.channel.id) not in self.channels:
             return
         config = self.channels[str(message.channel.id)]
