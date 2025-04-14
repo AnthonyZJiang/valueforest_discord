@@ -18,6 +18,7 @@ class VFMessage:
         self.credit = None
         self.credit_link_markup = None
         self.attachments = []
+        self.embeds = []
 
     @staticmethod
     def from_dc_msg(dc_msg: discord.Message, config: dict):
@@ -44,6 +45,7 @@ class VFMessage:
         msg = VFMessage(content.strip(), config)
         msg.author_name = config['author_name_override'] if config['author_name_override'] else dc_msg.author.display_name
         msg.credit = dc_msg.jump_url
+        msg.embeds = dc_msg.embeds
         return msg
     
     @staticmethod

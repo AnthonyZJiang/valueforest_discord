@@ -32,7 +32,7 @@ class MessageSender(discord.Client):
     async def send_message(self, message: VFMessage):
         channel = self.get_cached_channel(message.target_channel_id)
         logger.info(f"Send message: Sending message to {channel.name}")
-        await channel.send(message.content, files=message.attachments)
+        await channel.send(message.content, files=message.attachments, embeds=message.embeds)
             
     async def delete_messages(self, message: discord.Message):
         if message:
