@@ -1,41 +1,50 @@
 import json
 from concurrent.futures import ThreadPoolExecutor
 import logging
-from datetime import datetime, time, timedelta
+import re
+from datetime import datetime, timezone, timedelta
 
 from .utils import setup_logging
 from .sender import MessageSender
 from .receiver import MessageReceiver
 
 
-VERSION: str = 'SMK-0.1.0'
+VERSION: str = 'SMK-0.2.0-no-trump'
 
 
 def parse_date_arg(arg: str) -> datetime:
-    if arg == 'today':
-        today = datetime.now().date()
-        return datetime.combine(today, time.min)
-    if arg == 'yesterday':
-        yesterday = datetime.now().date() - timedelta(days=1)
-        return datetime.combine(yesterday, time.min)
-
-    parts = arg.split(' ', 1)
-    if parts[0] in ['today', 'yesterday']:
-        date_part = parts[0]
-        time_part = parts[1]
-
-        if date_part == 'today':
-            base_date = datetime.now().date()
-        elif date_part == 'yesterday':
-            base_date = datetime.now().date() - timedelta(days=1)
-        else:
-            return datetime.strptime(arg, '%Y-%m-%d %H:%M:%S')
-        
-        try:
-            time_obj = datetime.strptime(time_part, '%H:%M:%S').time()
-            return datetime.combine(base_date, time_obj)
-        except ValueError:
-            raise ValueError(f"Time must be in HH:MM:SS format, got: {time_part}")
+    """
+    Parse a relative time argument in the format '-XdYhZmWs' where:
+    - X is days (optional)
+    - Y is hours (optional)
+    - Z is minutes (optional)
+    - W is seconds (optional)
+    Example: '-1d2h3m4s' means 1 day, 2 hours, 3 minutes, and 4 seconds ago
+    """
+    if not arg.startswith('-'):
+        raise ValueError("Time argument must start with '-'")
+    
+    days, hours, minutes, seconds = 0, 0, 0, 0
+    
+    pattern = r'(\d+)d|(\d+)h|(\d+)m|(\d+)s'
+    matches = re.finditer(pattern, arg[1:])
+    
+    for match in matches:
+        if match.group(1):
+            days = int(match.group(1))
+        elif match.group(2):
+            hours = int(match.group(2))
+        elif match.group(3):
+            minutes = int(match.group(3))
+        elif match.group(4): 
+            seconds = int(match.group(4))
+    
+    return datetime.now(timezone.utc) - timedelta(
+        days=days,
+        hours=hours,
+        minutes=minutes,
+        seconds=seconds
+    )
 
 
 class Bot:
@@ -52,14 +61,14 @@ class Bot:
         sender = MessageSender(config=self.config)
         receiver = MessageReceiver(config=self.config, sender=sender)
         
-        if 'forward_history_since' in kwargs:
-            receiver.forward_history_since = parse_date_arg(kwargs['forward_history_since'])
+        if 'pull_since' in kwargs:
+            receiver.forward_history_since = parse_date_arg(kwargs['pull_since'])
             self.logger.info("Forwarding history messages since %s", receiver.forward_history_since)
         
         executor = ThreadPoolExecutor(max_workers=2)
         
         sender_future = executor.submit(sender.run, self.config['bot_token'])
-        receiver_future = executor.submit(receiver.run, self.config['self_token'])
+        receiver_future = executor.submit(receiver.run, self.config['self_token'], log_level=logging.DEBUG)
         
         self.logger.info("Starting bot...")
         try:
