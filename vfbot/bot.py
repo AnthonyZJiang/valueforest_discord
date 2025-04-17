@@ -68,7 +68,7 @@ class Bot:
         executor = ThreadPoolExecutor(max_workers=2)
         
         sender_future = executor.submit(sender.run, self.config['bot_token'])
-        receiver_future = executor.submit(receiver.run, self.config['self_token'], log_level=logging.DEBUG)
+        receiver_future = executor.submit(receiver.run, self.config['self_token'], log_level=logging.INFO)
         
         self.logger.info("Starting bot...")
         try:
