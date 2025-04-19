@@ -55,6 +55,9 @@ class MessageReceiver(selfcord.Client):
     async def forward_history_messages_by_channel(self, from_channel_id: int, to_channel_id: int, after: datetime, rate: int = 2):
         logger.info(f"Forwarding history messages from {from_channel_id} to {to_channel_id} after {after}.")
         channel = self.get_channel(from_channel_id)
+        if not channel:
+            logger.error(f"Try to forward history messages from a non-existent channel {from_channel_id}.")
+            return
         hist = [msg async for msg in channel.history(limit=100, after=after, oldest_first=True)]
         for message in hist:
             config = self.channels[message.channel.id]

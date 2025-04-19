@@ -11,6 +11,8 @@ from .receiver import MessageReceiver
 
 VERSION: str = 'SMK-0.2.0-no-trump'
 
+setup_logging()
+logger = logging.getLogger(__name__)
 
 def parse_date_arg(arg: str) -> datetime:
     """
@@ -22,7 +24,11 @@ def parse_date_arg(arg: str) -> datetime:
     Example: '-1d2h3m4s' means 1 day, 2 hours, 3 minutes, and 4 seconds ago
     """
     if not arg.startswith('-'):
-        raise ValueError("Time argument must start with '-'")
+        try:
+            return datetime.strptime(arg, '%Y-%m-%d %H:%M:%S')
+        except ValueError:
+            logger.warning(f"Invalid date format: {arg}")
+            return None
     
     days, hours, minutes, seconds = 0, 0, 0, 0
     
@@ -49,30 +55,30 @@ def parse_date_arg(arg: str) -> datetime:
 
 class Bot:
     def __init__(self):
-        setup_logging()
-        self.logger = logging.getLogger(__name__)
-        self.logger.info("Bot version: %s", VERSION)
+        logger.info("Bot version: %s", VERSION)
     
         self.config = json.load(open('config.json'))
         self.config['channels'] = {int(k): v for k, v in self.config['channels'].items()}
-        self.logger.info("Config loaded. %d channels to monitor.", len(self.config['channels']))
+        logger.info("Config loaded. %d channels to monitor.", len(self.config['channels']))
 
     def run(self, **kwargs):
         sender = MessageSender(config=self.config)
         receiver = MessageReceiver(config=self.config, sender=sender)
         
         if 'pull_since' in kwargs:
-            receiver.forward_history_since = parse_date_arg(kwargs['pull_since'])
-            self.logger.info("Forwarding history messages since %s", receiver.forward_history_since)
+            date = parse_date_arg(kwargs['pull_since'])
+            if date:
+                logger.info("Forwarding history messages since %s", date)
+                receiver.forward_history_since = date
         
         executor = ThreadPoolExecutor(max_workers=2)
         
         sender_future = executor.submit(sender.run, self.config['bot_token'])
         receiver_future = executor.submit(receiver.run, self.config['self_token'], log_level=logging.INFO)
         
-        self.logger.info("Starting bot...")
+        logger.info("Starting bot...")
         try:
             sender_future.result()
             receiver_future.result()
         except KeyboardInterrupt:
-            self.logger.info("Ctrl+C again to shut down...")
+            logger.info("Ctrl+C again to shut down...")
