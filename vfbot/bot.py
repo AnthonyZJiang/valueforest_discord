@@ -13,7 +13,7 @@ from .receiver import MessageReceiver
 
 VERSION: str = 'SMK-0.2.0-no-trump'
 
-setup_logging()
+stream_handler = setup_logging()
 logger = logging.getLogger(__name__)
 
 def parse_date_arg(arg: str) -> datetime:
@@ -84,13 +84,28 @@ class Bot:
                 if self.receiver and self.receiver.is_ready() and self.sender and self.sender.is_ready():
                     break
                 time.sleep(1)
-                
+        
+        def wait_for_resume():
+            resume_timer = time.time()
+            logger.warning("Websocket closed, waiting for it to auto-resume...")
+            while True:
+                if time.time() - resume_timer > websocket_resume_timeout:
+                    logger.warning("Websocket auto-resume timeout, restarting...")
+                    self.restart_discord_thread()
+                    logger.info("Waiting for discord bots to start...")
+                    time.sleep(5)
+                    return
+                if not self.receiver.is_closed():
+                    logger.info("Discord reconnected.")
+                    return
+                time.sleep(1)
+        
+        websocket_resume_timeout = 5
         while True:
             try:
                 wait_for_discord()
                 if self.receiver.is_closed():
-                    self.restart_discord_thread()
-                time.sleep(1)
+                    wait_for_resume()
             except KeyboardInterrupt:
                 logger.info("Ctrl+C again to shut down...")
                 break
@@ -102,8 +117,10 @@ class Bot:
         self.discord_thread.join(timeout=1)
         self.discord_thread = Thread(target=self.start_discord)
         self.discord_thread.start()
+        logger.info("Discord thread restart requested.")
     
     def start_discord(self):
+        logger.info("> Building discord bots...")
         self.sender = MessageSender(config=self.config)
         self.receiver = MessageReceiver(config=self.config, sender=self.sender)
         
@@ -112,10 +129,10 @@ class Bot:
         
         executor = ThreadPoolExecutor(max_workers=2)
         
-        sender_future = executor.submit(self.sender.run, self.config['bot_token'])
-        receiver_future = executor.submit(self.receiver.run, self.config['self_token'], log_level=logging.INFO)
+        sender_future = executor.submit(self.sender.run, self.config['bot_token'], log_handler=stream_handler)
+        receiver_future = executor.submit(self.receiver.run, self.config['self_token'], log_handler=stream_handler)
         
-        logger.info("Starting bot...")
+        logger.info("> Commissioning discord bots...")
         try:
             sender_future.result()
             receiver_future.result()
