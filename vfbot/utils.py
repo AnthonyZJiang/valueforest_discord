@@ -1,15 +1,11 @@
 import logging
-import requests
-import json
-
-import discord
 from discord.utils import _ColourFormatter
 
 ASHLEY_ID = 1313007325224898580
 ANGELA_ID = 1313008328229785640
 TESTER_ID = 185020620310839296
 
-def setup_logging() -> None:
+def setup_logging() -> logging.Handler:
     level = logging.INFO
 
     handler = logging.StreamHandler()
@@ -21,6 +17,7 @@ def setup_logging() -> None:
     handler.setFormatter(formatter)
     logger.setLevel(level)
     logger.addHandler(handler)
+    return handler
 
 def create_author_id_to_name_mapping(config: dict):
     author_mapping = {}

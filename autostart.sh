@@ -8,5 +8,9 @@ else
 	echo "venv not found."
 fi
 
-pip install -U -r requirements.txt
+if [[ "$1" == "-U" ]]; then
+	pip install -U -r requirements.txt
+	shift
+fi
+
 python3 run_bot.py "$@"  # Pass all arguments to run_bot.py

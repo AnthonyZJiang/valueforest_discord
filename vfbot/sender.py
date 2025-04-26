@@ -2,8 +2,6 @@ import asyncio
 import logging
 
 import discord
-
-from .utils import create_author_id_to_name_mapping
 from .vfmessage import VFMessage
 
 
@@ -18,7 +16,6 @@ class MessageSender(discord.Client):
         super().__init__(intents=intents)
         
         self.channels = {}  # type: dict[int, discord.TextChannel]
-        self.author_names = create_author_id_to_name_mapping(config) # type: dict[int, str]
         
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
@@ -33,8 +30,8 @@ class MessageSender(discord.Client):
 
     async def send_message(self, message: VFMessage):
         channel = self.get_cached_channel(message.target_channel_id)
-        logger.info(f"Send message: Sending message from {message.dc_msg.channel.name} to {channel.name}")
-        await channel.send(message.content)
+        logger.info(f"Send message: Sending message to {channel.name}")
+        await channel.send(message.content, embeds=message.embeds)
             
     async def delete_messages(self, message: discord.Message):
         if message:
