@@ -46,10 +46,11 @@ class MessageReceiver(selfcord.Client):
         if message.channel.id not in self.channels:
             return
         config = self.channels[message.channel.id] # type: dict
-        if author_ids := config.get('author_ids', []) and message.author.id not in author_ids:
-            return
+        if author_ids := config.get('author_ids', []):
+            if message.author.id not in author_ids:
+                return
         logger.info(f"On message: Received message {message.id} from {message.author.display_name} in {message.channel.name}.")
-        msg = VFMessage(message, config)
+        msg = VFMessage.from_dc_msg(message, config)
         self.sender.forward_message(msg)
         
     async def forward_history_messages_by_channel(self, from_channel_id: int, after: datetime, rate: int = 2):
