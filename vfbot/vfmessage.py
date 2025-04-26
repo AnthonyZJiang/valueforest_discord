@@ -10,7 +10,11 @@ class VFMessage:
         
         self._content = message.content
         self.target_channel_id = config['target_channel_id']
-        self.author_name = self.config['author_name_override'] if self.config['author_name_override'] else self.dc_msg.author.display_name
+        
+        self.author_name = self.config.get('author_name_override', '')
+        if not self.author_name:
+            self.author_name = self.dc_msg.author.display_name
+            
         self.credit = self.dc_msg.jump_url
         
         self.last_price = None
@@ -24,15 +28,15 @@ class VFMessage:
                 _content += " " + " ".join([f.url for f in self.dc_msg.attachments])
             else:
                 _content = self.dc_msg.attachments[0].url
-        if self.config['show_name']:
+        if self.config.get('show_name', False):
             _content = f"【{self.author_name}】{_content}"
-        if self.config['show_credit']:
-            _content = f"{_content} | Credit: {self.credit}"
+        if self.config.get('show_credit', False):
+            _content = f"{_content} | 👉{self.credit}"
         return _content
     
     @property
-    def embeds(self) -> discord.Embed:
-        return self.dc_msg.embeds[0] if self.dc_msg.embeds else None
+    def embeds(self) -> list[discord.Embed]:
+        return self.dc_msg.embeds
         
     def beautify(self):
         self._content = self._content.replace("@c2.ini", "")
