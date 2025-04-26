@@ -2,7 +2,9 @@ import json
 from concurrent.futures import ThreadPoolExecutor
 import logging
 import re
+import time
 from datetime import datetime, timezone, timedelta
+from threading import Thread
 
 from .utils import setup_logging
 from .sender import MessageSender
@@ -55,26 +57,63 @@ def parse_date_arg(arg: str) -> datetime:
 
 class Bot:
     def __init__(self):
+        self.pull_since = None
+        self.sender = None
+        self.receiver = None
+        
         logger.info("Bot version: %s", VERSION)
     
         self.config = json.load(open('config.json'))
         self.config['channels'] = {int(k): v for k, v in self.config['channels'].items()}
         logger.info("Config loaded. %d channels to monitor.", len(self.config['channels']))
-
-    def run(self, **kwargs):
-        sender = MessageSender(config=self.config)
-        receiver = MessageReceiver(config=self.config, sender=sender)
         
+    def run(self, **kwargs):
         if 'pull_since' in kwargs:
             date = parse_date_arg(kwargs['pull_since'])
             if date:
                 logger.info("Forwarding history messages since %s", date)
-                receiver.forward_history_since = date
+                self.pull_since = date
+        
+        self.discord_thread = Thread(target=self.start_discord)
+        self.discord_thread.start()
+        self.start_monitor()
+            
+    def start_monitor(self):
+        def wait_for_discord():
+            while True:
+                if self.receiver and self.receiver.is_ready() and self.sender and self.sender.is_ready():
+                    break
+                time.sleep(1)
+                
+        while True:
+            try:
+                wait_for_discord()
+                if self.receiver.is_closed():
+                    self.restart_discord_thread()
+                time.sleep(1)
+            except KeyboardInterrupt:
+                logger.info("Ctrl+C again to shut down...")
+                break
+            except Exception as e:
+                logger.error("Error in monitor thread: %s", e, exc_info=True)
+                time.sleep(1)
+            
+    def restart_discord_thread(self):
+        self.discord_thread.join(timeout=1)
+        self.discord_thread = Thread(target=self.start_discord)
+        self.discord_thread.start()
+    
+    def start_discord(self):
+        self.sender = MessageSender(config=self.config)
+        self.receiver = MessageReceiver(config=self.config, sender=self.sender)
+        
+        self.receiver.forward_history_since = self.pull_since
+        self.pull_since = None
         
         executor = ThreadPoolExecutor(max_workers=2)
         
-        sender_future = executor.submit(sender.run, self.config['bot_token'])
-        receiver_future = executor.submit(receiver.run, self.config['self_token'], log_level=logging.INFO)
+        sender_future = executor.submit(self.sender.run, self.config['bot_token'])
+        receiver_future = executor.submit(self.receiver.run, self.config['self_token'], log_level=logging.INFO)
         
         logger.info("Starting bot...")
         try:
