@@ -38,7 +38,7 @@ class VFMessage:
             
         msg = cls(content.strip(), config)
         
-        msg.author_name = msg.config.get('author_name_override', '')
+        msg.author_name = msg.set_author_name(msg.config.get('author_name_override', ''))
         if not msg.author_name:
             msg.author_name = dc_msg.author.display_name
         msg.credit = dc_msg.jump_url
@@ -58,3 +58,22 @@ class VFMessage:
         for embed in embeds:
             if not embed.url:
                 self.embeds.append(embed)
+                
+    def set_author_name(self, author_name: str):
+        # if author name is wrapped in $, replace it with the actual name
+        if not author_name.startswith("$") and author_name.endswith("$"):
+            self.author_name = author_name
+            return
+        
+        if author_name == '$cathy-whale$':
+            self.author_name = '巨鲸分析'
+        elif author_name == '$cathy-swing$':
+            self.author_name = '短线分析'
+        elif author_name == '$cathy-view$':
+            self.author_name = '观点分享'
+        elif author_name == '$cathy-invest$':
+            self.author_name = '长线布局'
+        elif author_name == '$cathy-strategy$':
+            self.author_name = '交易心得'
+            
+            
