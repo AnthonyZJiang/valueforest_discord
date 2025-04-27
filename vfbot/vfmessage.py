@@ -42,7 +42,7 @@ class VFMessage:
         if not msg.author_name:
             msg.author_name = dc_msg.author.display_name
         msg.credit = dc_msg.jump_url
-        msg.embeds = dc_msg.embeds
+        msg.set_embeds(dc_msg.embeds)
         return msg
         
     @property
@@ -53,3 +53,12 @@ class VFMessage:
         if self.config.get('show_credit', False):
             _content = f"{_content} | {self.credit}"
         return _content
+
+    def set_embeds(self, embeds: list[discord.Embed]):
+        for embed in embeds:
+            if embed.type == 'rich':
+                self.embeds.append(embed)
+            elif embed.type == 'image' or embed.type == 'video':
+                if not embed.url:
+                    self.embeds.append(embed)
+                    
