@@ -56,9 +56,5 @@ class VFMessage:
 
     def set_embeds(self, embeds: list[discord.Embed]):
         for embed in embeds:
-            if embed.type == 'rich':
+            if not embed.url:
                 self.embeds.append(embed)
-            elif embed.type == 'image' or embed.type == 'video':
-                if not embed.url:
-                    self.embeds.append(embed)
-                    
