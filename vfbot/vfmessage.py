@@ -38,7 +38,7 @@ class VFMessage:
             
         msg = cls(content.strip(), config)
         
-        msg.author_name = msg.set_author_name(msg.config.get('author_name_override', ''))
+        msg.set_author_name(msg.config.get('author_name_override', ''))
         if not msg.author_name:
             msg.author_name = dc_msg.author.display_name
         msg.credit = dc_msg.jump_url
