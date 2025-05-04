@@ -9,9 +9,10 @@ from threading import Thread
 from .utils import setup_logging
 from .sender import MessageSender
 from .receiver import MessageReceiver
+from .vfconfig import VFConfig
 
 
-VERSION: str = 'SMK-0.2.0-no-trump'
+VERSION: str = 'SMK-2.0.0'
 
 stream_handler = setup_logging()
 logger = logging.getLogger(__name__)
@@ -63,9 +64,8 @@ class Bot:
         
         logger.info("Bot version: %s", VERSION)
     
-        self.config = json.load(open('config.json'))
-        self.config['channels'] = {int(k): v for k, v in self.config['channels'].items()}
-        logger.info("Config loaded. %d channels to monitor.", len(self.config['channels']))
+        self.config = VFConfig('config.json')
+        logger.info("Config loaded. %d channels to monitor.", len(self.config.channel_list))
         
     def run(self, **kwargs):
         if 'pull_since' in kwargs:
@@ -121,7 +121,7 @@ class Bot:
     
     def start_discord(self):
         logger.info("> Building discord bots...")
-        self.sender = MessageSender(config=self.config)
+        self.sender = MessageSender()
         self.receiver = MessageReceiver(config=self.config, sender=self.sender)
         
         self.receiver.forward_history_since = self.pull_since
@@ -129,8 +129,8 @@ class Bot:
         
         executor = ThreadPoolExecutor(max_workers=2)
         
-        sender_future = executor.submit(self.sender.run, self.config['bot_token'], log_handler=stream_handler)
-        receiver_future = executor.submit(self.receiver.run, self.config['self_token'], log_handler=stream_handler)
+        sender_future = executor.submit(self.sender.run, self.config.bot_token, log_handler=stream_handler)
+        receiver_future = executor.submit(self.receiver.run, self.config.self_token, log_handler=stream_handler)
         
         logger.info("> Commissioning discord bots...")
         try:

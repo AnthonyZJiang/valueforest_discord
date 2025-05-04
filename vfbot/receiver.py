@@ -3,19 +3,21 @@ import asyncio
 from datetime import datetime
 import random
 import selfcord
+import discord
+from discord_webhook import DiscordWebhook
 
 from .sender import MessageSender
 from .vfmessage import VFMessage
+from .vfconfig import VFConfig
 from .utils import get_config_value
 
 logger = logging.getLogger(__name__)
 
 class MessageReceiver(selfcord.Client):
-    def __init__(self, config: dict, sender: MessageSender):
+    def __init__(self, config: VFConfig, sender: MessageSender):
         super().__init__()
-        self.channels = get_config_value(config, 'channels')
-        if not self.channels:
-            raise ValueError('Missing required config values')
+        self.config = config
+        self.channels = config.repost_settings
         self.sender = sender
         self.forward_history_since = None
         
@@ -28,7 +30,7 @@ class MessageReceiver(selfcord.Client):
     async def delete_duplicate_messages(self, since: datetime):
         # usage: await self.delete_duplicate_messages(since=datetime(2025, 3, 10, 19, 0))
         messages = []
-        for channel in self.channels:
+        for channel in self.config.channel_list:
             channel_id = self.channels[channel]['target_channel_id']
             channel = self.get_channel(channel_id)
             hist = [msg async for msg in channel.history(limit=100, after=since, oldest_first=True)]
@@ -43,16 +45,37 @@ class MessageReceiver(selfcord.Client):
         logger.info(f"Duplicate messages deleted.")
             
     async def on_message(self, message: selfcord.Message):
-        if message.channel.id not in self.channels:
+        if message.channel.id not in self.config.channel_list:
             return
-        config = self.channels[message.channel.id] # type: dict
-        if author_ids := config.get('author_ids', []):
-            if message.author.id not in author_ids:
-                return
+        config = None
+        for c in self.channels[message.channel.id]:
+            if author_ids := c.get('authors', {}).keys():
+                if message.author.id not in author_ids:
+                    continue
+                else:
+                    c['author'] = c['authors'][message.author.id]
+            config = c
+            break
+        if not config:
+            return
         logger.info(f"On message: Received message {message.id} from {message.author.display_name} in {message.channel.name}.")
         msg = VFMessage.from_dc_msg(message, config)
-        self.sender.forward_message(msg)
+        if msg.is_webhook:
+            self.send_webhook_message(msg)
+        else:
+            self.sender.forward_message(msg)
         
+        await asyncio.sleep(2)
+        
+    def send_webhook_message(self, message: VFMessage):
+        webhook = DiscordWebhook(url=message.webhook_url)
+        webhook.content = message.content
+        if isinstance(message.raw_msg_carrier, selfcord.Message) and message.webhook_dynamic_avatar_name:
+            webhook.username = message.raw_msg_carrier.author.display_name
+            webhook.avatar_url = message.raw_msg_carrier.author.display_avatar.url
+        webhook.embeds = message.embeds
+        webhook.execute()
+    
     async def forward_history_messages_by_channel(self, from_channel_id: int, after: datetime, rate: int = 2):
         logger.info(f"Forwarding history messages from {from_channel_id} after {after}.")
         channel = self.get_channel(from_channel_id)
@@ -62,11 +85,9 @@ class MessageReceiver(selfcord.Client):
         hist = [msg async for msg in channel.history(limit=100, after=after, oldest_first=True)]
         for message in hist:
             await self.on_message(message)
-            await asyncio.sleep(rate)
         logger.info(f"Forwarded {len(hist)} messages from {from_channel_id}.")
         
     async def forward_history_messages(self, after: datetime, rate: int = 2):
-        channels = list(self.channels.keys())
-        for id in channels:
+        for id in self.config.channel_list:
             await self.forward_history_messages_by_channel(id, after, rate)
         logger.info(f"All history messages forwarded.")

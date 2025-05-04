@@ -1,0 +1,102 @@
+import json
+import logging
+logger = logging.getLogger(__name__)
+
+
+def pop_from_checklist(checklist: list[str], item: str) -> None:
+    try:
+        checklist.pop(checklist.index(item))
+    except ValueError:
+        pass
+
+
+class VFConfig:
+    def __init__(self, config_path: str):
+        with open(config_path, 'r') as f:
+            self.config = json.load(f)
+        
+        self._test_mode = self.config.get('test_mode', {"enabled": False})
+        self.self_token = self.config['self_token']
+        self.bot_token = self.config['bot_token']
+        self.repost_settings = {}
+        self.construct_repost_settings()
+        self.channel_list = list(self.repost_settings.keys())
+        
+    def construct_repost_settings(self):
+        def set_author_config(channel_config: list[str], author_mapping: dict, author_names_checklist: list[str]) -> dict:
+            if not (authors:=channel_config.get('authors', None)):
+                return None
+            authors_config = {}
+            for author in authors:
+                if not (author_config := author_mapping.get(author, None)):
+                    logger.error(f"Author {author} not found in users list.")
+                    continue
+                authors_config[int(author_config['id'])] = author_config
+                pop_from_checklist(author_names_checklist, author)
+            channel_config['authors'] = authors_config
+        
+        def set_channel_config(channel_config: list[str], channel_mapping: dict, channel_names_checklist: list[str]) -> dict:
+            if self._test_mode['enabled']:
+                channel_config['target_channel'] = channel_mapping.get(self._test_mode['target_channel'], None)
+                return
+            if not (target_channel_name:=channel_config.get('target_channel', None)):
+                logger.error(f"No target channel specified for channel {channel_config['id']}.")
+                return
+            channel_config['target_channel'] = channel_mapping.get(target_channel_name, None)
+            if not channel_config['target_channel']:
+                logger.error(f"Channel {target_channel_name} not found in channels list.")
+                return
+            pop_from_checklist(channel_names_checklist, target_channel_name)
+        
+        def set_webhook_config(channel_config: list[str], webhook_mapping: dict, webhook_names_checklist: list[str]) -> dict:
+            if self._test_mode['enabled']:
+                channel_config['webhook'] = webhook_mapping.get(self._test_mode['webhook'], None)
+                return
+            if not (target_webhook_name:=channel_config.get('webhook', None)):
+                logger.error(f"No webhook specified for channel {channel_config['target_channel']}.")
+                return
+            channel_config['webhook'] = webhook_mapping.get(target_webhook_name, None)
+            if not channel_config['webhook']:
+                logger.error(f"Webhook {target_webhook_name} not found in webhooks list.")
+                return
+            pop_from_checklist(webhook_names_checklist, target_webhook_name)
+        
+        channel_mapping = self.config['channels'] # type: dict[str, str]
+        author_mapping = self.config['users'] # type: dict[str, dict]
+        webhook_mapping = self.config.get('webhooks', {}) # type: dict[str, str]
+        channel_names_checklist = list(channel_mapping.keys())
+        author_names_checklist = list(author_mapping.keys())
+        webhook_names_checklist = list(webhook_mapping.keys())
+        
+        for k, channel_configs in self.config['repost_settings'].items():
+            if not (id := channel_mapping.get(k, None)):
+                logger.error(f"Channel {k} not found in channels list, ignored")
+                continue
+            for c_config in channel_configs:
+                set_author_config(c_config, author_mapping, author_names_checklist)
+                set_channel_config(c_config, channel_mapping, channel_names_checklist)
+                set_webhook_config(c_config, webhook_mapping, webhook_names_checklist)
+
+            self.repost_settings[int(id)] = channel_configs
+            pop_from_checklist(channel_names_checklist, k)
+        
+        if self._test_mode['enabled']:
+            return
+        if len(channel_names_checklist) > 0:
+            logger.warning(f"The following channels are not found in repost settings: {channel_names_checklist}")
+        if len(author_names_checklist) > 0:
+            logger.warning(f"The following authors are not found in repost settings: {author_names_checklist}")
+        if len(webhook_names_checklist) > 0:
+            logger.warning(f"The following webhooks are not found in repost settings: {webhook_names_checklist}")
+
+    def get(self, key, default=None):
+        return self.repost_settings.get(key, default)
+    
+    def keys(self):
+        return self.repost_settings.keys()
+    
+    def values(self):
+        return self.repost_settings.values()
+    
+    def items(self):
+        return self.repost_settings.items()

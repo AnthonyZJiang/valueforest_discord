@@ -8,9 +8,7 @@ from .vfmessage import VFMessage
 logger = logging.getLogger(__name__)
 
 class MessageSender(discord.Client):
-    def __init__(self, config: dict):
-        self.config = config
-        
+    def __init__(self):
         intents = discord.Intents.default()
         intents.message_content = True
         super().__init__(intents=intents)
