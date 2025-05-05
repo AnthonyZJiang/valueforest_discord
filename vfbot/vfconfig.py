@@ -50,7 +50,7 @@ class VFConfig:
                     logger.error(f"Channel {channel_name} not found in channels list.")
                     continue
                 channel_config['target_channel'].append(channel_id)
-            pop_from_checklist(channel_names_checklist, target_channel_name)
+                pop_from_checklist(channel_names_checklist, channel_name)
         
         def set_webhook_config(channel_config: list[str], webhook_mapping: dict, webhook_names_checklist: list[str]) -> dict:
             if self._test_mode['enabled']:
@@ -67,7 +67,7 @@ class VFConfig:
                     logger.error(f"Webhook {webhook_name} not found in webhooks list.")
                     continue
                 channel_config['webhook'].append(webhook_id)
-            pop_from_checklist(webhook_names_checklist, target_webhook_name)
+                pop_from_checklist(webhook_names_checklist, webhook_name)
         
         channel_mapping = self.config['channels'] # type: dict[str, str]
         author_mapping = self.config['users'] # type: dict[str, dict]
