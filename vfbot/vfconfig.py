@@ -81,11 +81,11 @@ class VFConfig:
         if self._test_mode['enabled']:
             return
         if len(channel_names_checklist) > 0:
-            logger.warning(f"The following channels are not found in repost settings: {channel_names_checklist}")
+            logger.warning(f"The following channels are not used: {channel_names_checklist}")
         if len(author_names_checklist) > 0:
-            logger.warning(f"The following authors are not found in repost settings: {author_names_checklist}")
+            logger.warning(f"The following authors are not used: {author_names_checklist}")
         if len(webhook_names_checklist) > 0:
-            logger.warning(f"The following webhooks are not found in repost settings: {webhook_names_checklist}")
+            logger.warning(f"The following webhooks are not used: {webhook_names_checklist}")
 
     def get(self, key, default=None):
         return self.repost_settings.get(key, default)
