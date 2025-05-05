@@ -1,9 +1,8 @@
 import logging
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 import random
 import selfcord
-import discord
 from discord_webhook import DiscordWebhook
 
 from .sender import MessageSender
@@ -82,10 +81,17 @@ class MessageReceiver(selfcord.Client):
         if not channel:
             logger.error(f"Try to forward history messages from a non-existent channel {from_channel_id}.")
             return
-        hist = [msg async for msg in channel.history(limit=100, after=after, oldest_first=True)]
-        for message in hist:
-            await self.on_message(message)
-        logger.info(f"Forwarded {len(hist)} messages from {from_channel_id}.")
+        count = 0
+        while True:
+            hist = [msg async for msg in channel.history(limit=100, after=after, oldest_first=True)]
+            if len(hist) == 0:
+                break
+            for message in hist:
+                await self.on_message(message)
+                count += 1
+            after = hist[-1].created_at + timedelta(microseconds=1)
+
+        logger.info(f"Forwarded {count} messages from {from_channel_id}.")
         
     async def forward_history_messages(self, after: datetime, rate: int = 2):
         for id in self.config.channel_list:
