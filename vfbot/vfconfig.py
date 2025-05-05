@@ -41,10 +41,15 @@ class VFConfig:
                 return
             if not (target_channel_name:=channel_config.get('target_channel', None)):
                 return
-            channel_config['target_channel'] = channel_mapping.get(target_channel_name, [])
-            if not channel_config['target_channel']:
-                logger.error(f"Channel {target_channel_name} not found in channels list.")
-                return
+            if not isinstance(target_channel_name, list):
+                target_channel_name = [target_channel_name]
+            channel_config['target_channel'] = []
+            for channel_name in target_channel_name:
+                channel_id = channel_mapping.get(channel_name, None)
+                if not channel_id:
+                    logger.error(f"Channel {channel_name} not found in channels list.")
+                    continue
+                channel_config['target_channel'].append(channel_id)
             pop_from_checklist(channel_names_checklist, target_channel_name)
         
         def set_webhook_config(channel_config: list[str], webhook_mapping: dict, webhook_names_checklist: list[str]) -> dict:
@@ -53,10 +58,15 @@ class VFConfig:
                 return
             if not (target_webhook_name:=channel_config.get('webhook', None)):
                 return
-            channel_config['webhook'] = webhook_mapping.get(target_webhook_name, [])
-            if not channel_config['webhook']:
-                logger.error(f"Webhook {target_webhook_name} not found in webhooks list.")
-                return
+            if not isinstance(target_webhook_name, list):
+                target_webhook_name = [target_webhook_name]
+            channel_config['webhook'] = []
+            for webhook_name in target_webhook_name:
+                webhook_id = webhook_mapping.get(webhook_name, None)
+                if not webhook_id:
+                    logger.error(f"Webhook {webhook_name} not found in webhooks list.")
+                    continue
+                channel_config['webhook'].append(webhook_id)
             pop_from_checklist(webhook_names_checklist, target_webhook_name)
         
         channel_mapping = self.config['channels'] # type: dict[str, str]
