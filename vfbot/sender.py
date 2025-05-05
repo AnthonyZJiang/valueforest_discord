@@ -27,9 +27,10 @@ class MessageSender(discord.Client):
         logger.info(f'Sender logged on as {self.user}')
 
     async def send_message(self, message: VFMessage):
-        channel = self.get_cached_channel(message.target_channel_id)
-        logger.info(f"Send message: Sending message to {channel.name}")
-        await channel.send(message.content, embeds=message.embeds)
+        for channel_id in message.target_channel_ids:
+            channel = self.get_cached_channel(channel_id)
+            logger.info(f"Send message: Sending message to {channel.name}")
+            await channel.send(message.content, embeds=message.embeds)
             
     async def delete_messages(self, message: discord.Message):
         if message:

@@ -10,14 +10,18 @@ class VFMessage:
         self._content = content
         self.config = config
         
-        self.target_channel_id = config.get('target_channel', None)
-        self.webhook_url = config.get('webhook', None)
-        if isinstance(self.webhook_url, dict):
-            self.webhook_dynamic_avatar_name = self.webhook_url.get('dynamic_avatar_name', True)
-            self.webhook_url = self.webhook_url.get('url', None)
+        self.target_channel_ids = config.get('target_channel', [])
+        if isinstance(self.target_channel_ids, int):
+            self.target_channel_ids = [self.target_channel_ids]
+        self.webhook_urls = config.get('webhook', [])
+        if isinstance(self.webhook_urls, dict):
+            self.webhook_dynamic_avatar_name = self.webhook_urls.get('dynamic_avatar_name', True)
+            self.webhook_urls = self.webhook_urls.get('url', None)
         else:
             self.webhook_dynamic_avatar_name = True
-        self.is_webhook = self.webhook_url is not None
+        if isinstance(self.webhook_urls, str):
+            self.webhook_urls = [self.webhook_urls]
+        self.is_webhook = len(self.webhook_urls) > 0
         self.show_author_name = config.get('show_author_name', False) and not self.is_webhook
         self.show_credit = config.get('show_credit', False)
             

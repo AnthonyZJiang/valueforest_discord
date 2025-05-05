@@ -67,13 +67,15 @@ class MessageReceiver(selfcord.Client):
         await asyncio.sleep(2)
         
     def send_webhook_message(self, message: VFMessage):
-        webhook = DiscordWebhook(url=message.webhook_url)
-        webhook.content = message.content
-        if isinstance(message.raw_msg_carrier, selfcord.Message) and message.webhook_dynamic_avatar_name:
-            webhook.username = message.raw_msg_carrier.author.display_name
-            webhook.avatar_url = message.raw_msg_carrier.author.display_avatar.url
-        webhook.embeds = message.embeds
-        webhook.execute()
+        for url in message.webhook_urls:
+            webhook = DiscordWebhook(url=url)
+            webhook.content = message.content
+            if isinstance(message.raw_msg_carrier, selfcord.Message) and message.webhook_dynamic_avatar_name:
+                webhook.username = message.raw_msg_carrier.author.display_name
+                webhook.avatar_url = message.raw_msg_carrier.author.display_avatar.url
+            webhook.embeds = message.embeds
+            res = webhook.execute()
+            logger.info(f"Sent webhook message. Response: {res.content}")
     
     async def forward_history_messages_by_channel(self, from_channel_id: int, after: datetime, rate: int = 2):
         logger.info(f"Forwarding history messages from {from_channel_id} after {after}.")
