@@ -37,11 +37,11 @@ class VFConfig:
         
         def set_channel_config(channel_config: list[str], channel_mapping: dict, channel_names_checklist: list[str]) -> dict:
             if self._test_mode['enabled']:
-                channel_config['target_channel'] = channel_mapping.get(self._test_mode['target_channel'], None)
+                channel_config['target_channel'] = channel_mapping.get(self._test_mode['target_channel'], [])
                 return
             if not (target_channel_name:=channel_config.get('target_channel', None)):
                 return
-            channel_config['target_channel'] = channel_mapping.get(target_channel_name, None)
+            channel_config['target_channel'] = channel_mapping.get(target_channel_name, [])
             if not channel_config['target_channel']:
                 logger.error(f"Channel {target_channel_name} not found in channels list.")
                 return
@@ -49,11 +49,11 @@ class VFConfig:
         
         def set_webhook_config(channel_config: list[str], webhook_mapping: dict, webhook_names_checklist: list[str]) -> dict:
             if self._test_mode['enabled']:
-                channel_config['webhook'] = webhook_mapping.get(self._test_mode['webhook'], None)
+                channel_config['webhook'] = webhook_mapping.get(self._test_mode['webhook'], [])
                 return
             if not (target_webhook_name:=channel_config.get('webhook', None)):
                 return
-            channel_config['webhook'] = webhook_mapping.get(target_webhook_name, None)
+            channel_config['webhook'] = webhook_mapping.get(target_webhook_name, [])
             if not channel_config['webhook']:
                 logger.error(f"Webhook {target_webhook_name} not found in webhooks list.")
                 return
