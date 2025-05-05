@@ -75,7 +75,7 @@ class MessageReceiver(selfcord.Client):
                 webhook.avatar_url = message.raw_msg_carrier.author.display_avatar.url
             webhook.embeds = message.embeds
             res = webhook.execute()
-            logger.info(f"Sent webhook message. Response: {res.content}")
+            logger.info(f"Sent webhook message. Status code: {res.status_code}.")
     
     async def forward_history_messages_by_channel(self, from_channel_id: int, after: datetime, rate: int = 2):
         logger.info(f"Forwarding history messages from {from_channel_id} after {after}.")
