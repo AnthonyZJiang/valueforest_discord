@@ -40,7 +40,6 @@ class VFConfig:
                 channel_config['target_channel'] = channel_mapping.get(self._test_mode['target_channel'], None)
                 return
             if not (target_channel_name:=channel_config.get('target_channel', None)):
-                logger.error(f"No target channel specified for channel {channel_config['id']}.")
                 return
             channel_config['target_channel'] = channel_mapping.get(target_channel_name, None)
             if not channel_config['target_channel']:
@@ -53,7 +52,6 @@ class VFConfig:
                 channel_config['webhook'] = webhook_mapping.get(self._test_mode['webhook'], None)
                 return
             if not (target_webhook_name:=channel_config.get('webhook', None)):
-                logger.error(f"No webhook specified for channel {channel_config['target_channel']}.")
                 return
             channel_config['webhook'] = webhook_mapping.get(target_webhook_name, None)
             if not channel_config['webhook']:

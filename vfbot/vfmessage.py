@@ -1,5 +1,7 @@
 import discord
+import selfcord
 import re
+from datetime import datetime, timedelta, timezone
 from typing_extensions import Self
 from .utils import ASHLEY_ID, ANGELA_ID
 
@@ -11,10 +13,10 @@ class VFMessage:
         self.target_channel_id = config.get('target_channel', None)
         self.webhook_url = config.get('webhook', None)
         if isinstance(self.webhook_url, dict):
+            self.webhook_dynamic_avatar_name = self.webhook_url.get('dynamic_avatar_name', True)
             self.webhook_url = self.webhook_url.get('url', None)
-            self.webhook_dynamic_avatar_name = self.webhook_url.get('dynamic_avatar_name', False)
         else:
-            self.webhook_dynamic_avatar_name = False
+            self.webhook_dynamic_avatar_name = True
         self.is_webhook = self.webhook_url is not None
         self.show_author_name = config.get('show_author_name', False) and not self.is_webhook
         self.show_credit = config.get('show_credit', False)
@@ -91,7 +93,29 @@ class VFMessage:
                 _content = f"【{self.author_name}】 {_content}"
         if self.show_credit:
             _content = f"{_content} | {self.credit}"
-        return _content
+        if time_str := self.get_date_str():
+            _content = f"{time_str}\n{_content}"
+        return _content.strip()
+    
+    def get_date_str(self) -> str:
+        if not isinstance(self.raw_msg_carrier, selfcord.Message):
+            return ""
+        t_delta = datetime.now(timezone.utc) - self.raw_msg_carrier.created_at
+        if t_delta > timedelta(seconds=5):
+            time_str = self.raw_msg_carrier.created_at.strftime("-# :small_blue_diamond: Posted at %Y-%m-%d %H:%M:%S UTC")
+            totalMinute, second = divmod(t_delta.seconds, 60)
+            hour, minute = divmod(totalMinute, 60)
+            if t_delta >= timedelta(days=1):
+                time_str = f"{time_str} ({t_delta.days} days {hour} hr {minute} min ago)"
+            elif t_delta > timedelta(hours=1):
+                time_str = f"{time_str} ({hour} hr {minute} min ago)"
+            elif t_delta > timedelta(minutes=1):
+                time_str = f"{time_str} ({minute} min ago)"
+            else:
+                time_str = f"{time_str} ({second} sec ago)"
+            return time_str
+        else:
+            return ""
                 
     @staticmethod
     def is_emoji(val: str) -> bool:
