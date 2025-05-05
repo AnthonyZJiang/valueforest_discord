@@ -5,6 +5,11 @@ from datetime import datetime, timedelta, timezone
 from typing_extensions import Self
 from .utils import ASHLEY_ID, ANGELA_ID
 
+class WebhookConfig:
+    def __init__(self, url: str, use_dynamic_avatar_name: bool = True):
+        self.url = url
+        self.use_dynamic_avatar_name = use_dynamic_avatar_name
+
 class VFMessage:
     def __init__(self, content: str, config: dict, raw_msg_carrier = None, author_name = None, credit = None, embeds = []):
         self._content = content
@@ -13,15 +18,14 @@ class VFMessage:
         self.target_channel_ids = config.get('target_channel', [])
         if isinstance(self.target_channel_ids, int):
             self.target_channel_ids = [self.target_channel_ids]
-        self.webhook_urls = config.get('webhook', [])
-        if isinstance(self.webhook_urls, dict):
-            self.webhook_dynamic_avatar_name = self.webhook_urls.get('dynamic_avatar_name', True)
-            self.webhook_urls = self.webhook_urls.get('url', None)
-        else:
-            self.webhook_dynamic_avatar_name = True
-        if isinstance(self.webhook_urls, str):
-            self.webhook_urls = [self.webhook_urls]
-        self.is_webhook = len(self.webhook_urls) > 0
+            
+        self.webhook_configs: list[WebhookConfig] = [] 
+        for webhook_url in config.get('webhook', []):
+            if isinstance(webhook_url, dict):
+                self.webhook_configs.append(WebhookConfig(webhook_url.get('url', None), webhook_url.get('dynamic_avatar_name', True)))
+            else:
+                self.webhook_configs.append(WebhookConfig(webhook_url))
+        self.is_webhook = len(self.webhook_configs) > 0
         self.show_author_name = config.get('show_author_name', False) and not self.is_webhook
         self.show_credit = config.get('show_credit', False)
             

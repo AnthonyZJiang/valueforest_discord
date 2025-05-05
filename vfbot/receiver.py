@@ -67,10 +67,10 @@ class MessageReceiver(selfcord.Client):
         await asyncio.sleep(2)
         
     def send_webhook_message(self, message: VFMessage):
-        for url in message.webhook_urls:
-            webhook = DiscordWebhook(url=url)
+        for webhook_config in message.webhook_configs:
+            webhook = DiscordWebhook(url=webhook_config.url)
             webhook.content = message.content
-            if isinstance(message.raw_msg_carrier, selfcord.Message) and message.webhook_dynamic_avatar_name:
+            if isinstance(message.raw_msg_carrier, selfcord.Message) and webhook_config.use_dynamic_avatar_name:
                 webhook.username = message.raw_msg_carrier.author.display_name
                 webhook.avatar_url = message.raw_msg_carrier.author.display_avatar.url
             webhook.embeds = message.embeds
