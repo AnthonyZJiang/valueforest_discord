@@ -55,6 +55,8 @@ class VFConfig:
         def set_webhook_config(channel_config: list[str], webhook_mapping: dict, webhook_names_checklist: list[str]) -> dict:
             if self._test_mode['enabled']:
                 channel_config['webhook'] = webhook_mapping.get(self._test_mode['webhook'], [])
+                if isinstance(channel_config['webhook'], str):
+                    channel_config['webhook'] = [channel_config['webhook']]
                 return
             if not (target_webhook_name:=channel_config.get('webhook', None)):
                 return
@@ -80,12 +82,18 @@ class VFConfig:
             if not (id := channel_mapping.get(k, None)):
                 logger.error(f"Channel {k} not found in channels list, ignored")
                 continue
+            this_channel_configs = []
             for c_config in channel_configs:
+                if self._test_mode['enabled'] and self._test_mode['flagged_only'] and not c_config.get('flag', False):
+                    continue
                 set_author_config(c_config, author_mapping, author_names_checklist)
                 set_channel_config(c_config, channel_mapping, channel_names_checklist)
                 set_webhook_config(c_config, webhook_mapping, webhook_names_checklist)
-
-            self.repost_settings[int(id)] = channel_configs
+                this_channel_configs.append(c_config)
+                
+            if len(this_channel_configs) == 0:
+                continue
+            self.repost_settings[int(id)] = this_channel_configs
             pop_from_checklist(channel_names_checklist, k)
         
         if self._test_mode['enabled']:

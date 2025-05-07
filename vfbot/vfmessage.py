@@ -11,7 +11,7 @@ class WebhookConfig:
         self.use_dynamic_avatar_name = use_dynamic_avatar_name
 
 class VFMessage:
-    def __init__(self, content: str, config: dict, raw_msg_carrier = None, author_name = None, credit = None, embeds = []):
+    def __init__(self, content: str, config: dict, raw_msg_carrier = None, author_name = None, credit = None, embeds = [], reference_msg = None):
         self._content = content
         self.config = config
         
@@ -33,6 +33,7 @@ class VFMessage:
         self.author_name: str = author_name
         self.credit: str = credit
         self.embeds: list[discord.Embed] = embeds
+        self.reference_msg: discord.Message = reference_msg
         
     @classmethod
     def from_dc_msg(cls, dc_msg: discord.Message, config: dict) -> Self:
@@ -86,21 +87,27 @@ class VFMessage:
                   raw_msg_carrier = dc_msg, 
                   author_name = get_author_name(author_name), 
                   credit = dc_msg.jump_url, 
-                  embeds = get_embeds(dc_msg.embeds))
-        
+                  embeds = get_embeds(dc_msg.embeds),
+                  reference_msg = dc_msg.reference.resolved if dc_msg.reference else None)
         return msg
         
     @property
     def content(self) -> str:
         _content = self._content
-        
+        if self.reference_msg:
+            referenced_content = re.sub(r'<.*?>', '', self.reference_msg.content).strip()
+            if referenced_content:
+                resolved_content = f"[{referenced_content}]({self.reference_msg.jump_url})"
+            else:
+                resolved_content = f"[Go to message]({self.reference_msg.jump_url})"
+            _content = f"-# Reply to: {resolved_content}\n" + _content
         if self.show_author_name:
             if self.is_emoji(self.author_name):
                 _content = f"{self.author_name} {_content}"
             else:
                 _content = f"【{self.author_name}】 {_content}"
         if self.show_credit:
-            _content = f"{_content} | {self.credit}"
+            _content = f"{_content} [ߺ ʟɪɴᴋ ߺ]({self.credit})"
         if time_str := self.get_date_str():
             _content = f"{time_str}\n{_content}"
         return _content.strip()
