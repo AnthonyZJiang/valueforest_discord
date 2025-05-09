@@ -51,8 +51,10 @@ class MessageReceiver(selfcord.Client):
             if author_ids := c.get('authors', {}).keys():
                 if message.author.id not in author_ids:
                     continue
-                else:
-                    c['author'] = c['authors'][message.author.id]
+                author_id_name = c['authors'][message.author.id].get('id_name', None)
+                if author_id_name and message.author.display_name != author_id_name:
+                    continue
+                c['author'] = c['authors'][message.author.id]
             config = c
             break
         if not config:

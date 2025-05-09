@@ -5,6 +5,8 @@ from datetime import datetime, timedelta, timezone
 from typing_extensions import Self
 from .utils import ASHLEY_ID, ANGELA_ID
 
+CHAR_LIMIT = 100
+
 class WebhookConfig:
     def __init__(self, url: str, use_dynamic_avatar_name: bool = True):
         self.url = url
@@ -32,7 +34,7 @@ class VFMessage:
         self.raw_msg_carrier: discord.Message = raw_msg_carrier
         self.author_name: str = author_name
         self.credit: str = credit
-        self.embeds: list[discord.Embed] = embeds
+        self.embeds: list[dict] = embeds
         self.reference_msg: discord.Message = reference_msg
         
     @classmethod
@@ -55,7 +57,7 @@ class VFMessage:
             embeds_list = []
             for embed in embeds:
                 if not embed.url:
-                    embeds_list.append(embed)
+                    embeds_list.append(VFMessage.selfcord_embed_to_dict(embed))
             return embeds_list
             
         content = dc_msg.content
@@ -96,6 +98,11 @@ class VFMessage:
         _content = self._content
         if self.reference_msg:
             referenced_content = re.sub(r'<.*?>', '', self.reference_msg.content).strip()
+            # remove @username from referenced_content
+            referenced_content = re.sub(r'@.*? ', '', referenced_content)
+            # limit the length of referenced_content to 20 characters
+            if len(referenced_content) > CHAR_LIMIT:
+                referenced_content = referenced_content[:CHAR_LIMIT] + "..."
             if referenced_content:
                 resolved_content = f"[{referenced_content}]({self.reference_msg.jump_url})"
             else:
@@ -135,3 +142,65 @@ class VFMessage:
     @staticmethod
     def is_emoji(val: str) -> bool:
         return val and val.startswith("<:") and val.endswith(">")
+    
+    @staticmethod
+    def selfcord_embed_to_dict(embed: selfcord.Embed) -> dict:
+        if embed.fields:
+            fields = [{
+                "name": field.name,
+                "value": field.value,
+                "inline": field.inline
+            } for field in embed.fields]
+        else:
+            fields = []
+        if embed.footer:
+            footer = {
+                "text": embed.footer.text,
+                "icon_url": embed.footer.icon_url
+            }
+        else:
+            footer = None
+        if embed.image:
+            image = {
+                "url": embed.image.url,
+                "width": embed.image.width,
+                "height": embed.image.height
+            }
+        else:
+            image = None
+        if embed.thumbnail:
+            thumbnail = {
+                "url": embed.thumbnail.url,
+                "width": embed.thumbnail.width,
+                "height": embed.thumbnail.height
+            }
+        else:
+            thumbnail = None
+        if embed.author:
+            author = {
+                "name": embed.author.name,
+                "url": embed.author.url,
+                "icon_url": embed.author.icon_url
+            }
+        else:
+            author = None
+        if embed.color:
+            color = embed.color.value
+        else:
+            color = None
+        if embed.timestamp:
+            timestamp = embed.timestamp.isoformat()
+        else:
+            timestamp = None
+        return {
+            "title": embed.title,
+            "description": embed.description,
+            "fields": fields,
+            "url": embed.url,
+            "timestamp": timestamp,
+            "footer": footer,
+            "image": image,
+            "thumbnail": thumbnail,
+            "author": author,
+            "color": color
+        }
