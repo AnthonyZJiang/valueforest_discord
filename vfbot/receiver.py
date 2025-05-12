@@ -1,14 +1,12 @@
 import logging
 import asyncio
 from datetime import datetime, timedelta
-import random
 import selfcord
 from discord_webhook import DiscordWebhook
 
 from .sender import MessageSender
 from .vfmessage import VFMessage
 from .vfconfig import VFConfig
-from .utils import get_config_value
 
 logger = logging.getLogger(__name__)
 
