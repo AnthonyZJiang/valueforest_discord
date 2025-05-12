@@ -25,23 +25,6 @@ class MessageReceiver(selfcord.Client):
         if self.forward_history_since:
             logger.info(f"Forwarding messages since {self.forward_history_since}")
             await self.forward_history_messages(after=self.forward_history_since)
-        
-    async def delete_duplicate_messages(self, since: datetime):
-        # usage: await self.delete_duplicate_messages(since=datetime(2025, 3, 10, 19, 0))
-        messages = []
-        for channel in self.config.channel_list:
-            channel_id = self.channels[channel]['target_channel_id']
-            channel = self.get_channel(channel_id)
-            hist = [msg async for msg in channel.history(limit=100, after=since, oldest_first=True)]
-            for message in hist:
-                if message.content in messages:
-                    # self.sender.forward_message_to_delete(message)
-                    await message.delete()
-                    logger.info(f"Deleted duplicate message from {channel.name}: {message.content}")
-                    await asyncio.sleep(random.uniform(2, 5))
-                else:
-                    messages.append(message.content)
-        logger.info(f"Duplicate messages deleted.")
             
     async def on_message(self, message: selfcord.Message):
         if message.channel.id not in self.config.channel_list:
@@ -51,7 +34,7 @@ class MessageReceiver(selfcord.Client):
             if author_ids := c.get('authors', {}).keys():
                 if message.author.id not in author_ids:
                     continue
-                author_id_name = c['authors'][message.author.id].get('id_name', None)
+                author_id_name = c['authors'][message.author.id].get('display_name_filter', None)
                 if author_id_name:
                     if isinstance(author_id_name, list):
                         if message.author.display_name not in author_id_name:

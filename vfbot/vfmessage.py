@@ -82,7 +82,7 @@ class VFMessage:
             content += " " + " ".join([f.url for f in dc_msg.attachments])
 
         author_name = config.get('author_name_override', 
-                                 config.get('author', {}).get('name', dc_msg.author.display_name))
+                                 config.get('author', {}).get('name_override', dc_msg.author.display_name))
 
         msg = cls(content.strip(), 
                   config, 

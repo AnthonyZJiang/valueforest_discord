@@ -24,7 +24,7 @@ class VFConfig:
         
     def construct_repost_settings(self):
         def set_author_config(channel_config: list[str], author_mapping: dict, author_names_checklist: list[str]) -> dict:
-            if not (authors:=channel_config.get('authors', None)):
+            if not (authors:=channel_config.get('author_filter', None)):
                 return None
             authors_config = {}
             for author in authors:
@@ -33,7 +33,7 @@ class VFConfig:
                     continue
                 authors_config[int(author_config['id'])] = author_config
                 pop_from_checklist(author_names_checklist, author)
-            channel_config['authors'] = authors_config
+            channel_config['author_filter'] = authors_config
         
         def set_channel_config(channel_config: list[str], channel_mapping: dict, channel_names_checklist: list[str]) -> dict:
             if self._test_mode['enabled']:
@@ -84,7 +84,7 @@ class VFConfig:
                 continue
             this_channel_configs = []
             for c_config in channel_configs:
-                if self._test_mode['enabled'] and self._test_mode['flagged_only'] and not c_config.get('flag', False):
+                if self._test_mode['enabled'] and self._test_mode['flagged_only'] and not c_config.get('flag_test_mode', False):
                     continue
                 set_author_config(c_config, author_mapping, author_names_checklist)
                 set_channel_config(c_config, channel_mapping, channel_names_checklist)

@@ -1,0 +1,71 @@
+{
+    "bot_token": "YOUR_BOT_TOKEN",
+    "self_token": "YOUR_SELF_TOKEN",
+    "test_mode": {
+        "enabled": false, // If true, the bot will only post messages to the test channel or via webhook.
+        "flagged_only": true, // If true, the bot will only accept rules that are flagged with 'flag_test_mode'. Useful if you want to test a few rules.
+        "target_channel": "channel_bot_test_dump", // The channel to post messages to. Define it in channels. 
+        "webhook": "webhook_bot_test_dump" // The webhook to post messages to. Define it in webhooks.
+    },
+    "repost_settings": {
+        "channel_to_monitor_1": [
+            {
+                // You only need to define either webhooks or target channels. Webhooks will take priority if both are defined.
+                // In this one, message will only be posted via webhook_of_target_channel_1 and webhook_of_target_channel_2
+                "webhook": ["webhook_of_target_channel_1", "webhook_of_target_channel_2"],
+                "target_channel": ["target_channel_1", "target_channel_2"],
+                "show_author_name": true, // Optional, default is false. If true, author name will be appended before the message
+                "show_credit": true // Optional, default is false. I true, a link to the original message will be appended to the end.
+            }
+        ],
+        "channel_to_monitor_2": [
+            // You can define multiple rules for one channels
+            {
+                // Followed by this rule, only messages posted by author 1 and 2 will be reposted via webhook_of_target_channel_2
+                "webhook": "webhook_of_target_channel_2", // can be a single string too.
+                "author_filter": "author_1", // can be a single string too.
+                "flag_test_mode": true // Optional, default is false. This is for test mode.
+            },
+            {
+                // Followed by this rule, only messages posted by author 3 will be reposted to channel target_channel_2
+                "target_channel": "target_channel_2",
+                "author_filter": ["author_2", "author_3"] // can be a single string too.
+            }
+        ]
+    },
+    "channels":{
+        // Define channel ids here
+        "channel_to_monitor_1": 12345867109219083,
+        "channel_to_monitor_2": 12934789261234553,
+        "target_channel_3": 10921839719472109,
+        "channel_bot_test_dump": 12345867109219083
+    },
+    "webhooks":{
+        "webhook_of_target_channel_1": {
+            "url": "https://discord.com/api/webhooks/1231234/WEBHOOK_URL", 
+            "dynamic_avatar_name": false // Optional, default is true. If true, the avatar and name of the webhook will be changed dynamically based on the author of the message.
+        },
+        "webhook_of_target_channel_2": {
+            "url": "https://discord.com/api/webhooks/1231234/WEBHOOK_URL"
+        },
+        "webhook_bot_test_dump": {
+            "url": "https://discord.com/api/webhooks/1231234/WEBHOOK_URL"
+        }
+    },
+    "users":{
+        // Define user details here
+        "author_1": {
+            "id": 109283027409124, 
+            "name_override": "Author Name Override", // Optional, when defined, the author name will be overwritten by this.
+            "display_name_filter": ["DisplayedName1", "DisplayedName2"] // Optional, when defined, only authors under these displayed name will be accepted. This is useful for monitor webhook messages because webhook can have multiple names under one ID.
+        },
+        "author_2": {
+            "id": 1234580934285943,
+            "name_override": "<:name_override_can_be_an_emoji:123092348-01234>", // You can also use emojis as name. Emojis need to be in the format of <:name:id>.
+            "display_name_filter": "DisplayedName3" // Can be a single string too.
+        },
+        "author_3": {
+            "id": 21837128974823197
+        }
+    }
+}
