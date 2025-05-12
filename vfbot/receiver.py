@@ -29,10 +29,10 @@ class MessageReceiver(selfcord.Client):
             return
         config = None
         for c in self.channels[message.channel.id]:
-            if author_ids := c.get('authors', {}).keys():
+            if author_ids := c.get('author_filter', {}).keys():
                 if message.author.id not in author_ids:
                     continue
-                author_id_name = c['authors'][message.author.id].get('display_name_filter', None)
+                author_id_name = c['author_filter'][message.author.id].get('display_name_filter', None)
                 if author_id_name:
                     if isinstance(author_id_name, list):
                         if message.author.display_name not in author_id_name:
@@ -40,7 +40,7 @@ class MessageReceiver(selfcord.Client):
                     else:
                         if message.author.display_name != author_id_name:
                             continue
-                c['author'] = c['authors'][message.author.id]
+                c['author'] = c['author_filter'][message.author.id]
             config = c
             break
         if not config:
