@@ -96,10 +96,16 @@ class VFMessage:
     @property
     def content(self) -> str:
         _content = self._content
+        if self.show_author_name:
+            if self.is_emoji(self.author_name):
+                _content = f"{self.author_name} {_content}"
+            else:
+                _content = f"【{self.author_name}】 {_content}"
         if self.reference_msg:
-            referenced_content = re.sub(r'<.*?>', '', self.reference_msg.content).strip()
-            # remove @username from referenced_content
-            referenced_content = re.sub(r'@.*? ', '', referenced_content)
+            # remove emojis in <> and normal emojis in ::
+            referenced_content = re.sub(r'<\S+>|:\S+:', '', self.reference_msg.content).strip()
+            # remove @, url, and line breaks
+            referenced_content = re.sub(r'@|https?:|[\n\r]+', '', referenced_content)
             # limit the length of referenced_content to 20 characters
             if len(referenced_content) > CHAR_LIMIT:
                 referenced_content = referenced_content[:CHAR_LIMIT] + "..."
@@ -108,11 +114,6 @@ class VFMessage:
             else:
                 resolved_content = f"[Go to message]({self.reference_msg.jump_url})"
             _content = f"-# Reply to: {resolved_content}\n" + _content
-        if self.show_author_name:
-            if self.is_emoji(self.author_name):
-                _content = f"{self.author_name} {_content}"
-            else:
-                _content = f"【{self.author_name}】 {_content}"
         if self.show_credit:
             _content = f"{_content} [ߺ ʟɪɴᴋ ߺ]({self.credit})"
         if time_str := self.get_date_str():
