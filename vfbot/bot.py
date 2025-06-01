@@ -11,7 +11,7 @@ from .receiver import MessageReceiver
 from .vfconfig import VFConfig
 
 
-VERSION: str = 'SMK-2.0.0'
+VERSION: str = 'SMK-2.1.0'
 
 stream_handler = setup_logging()
 logger = logging.getLogger(__name__)

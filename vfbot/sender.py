@@ -91,7 +91,7 @@ class MessageSender(discord.Client):
             except Exception as e:
                 logger.error(f"Error updating status message: {str(e)}")
             
-            await asyncio.sleep(60)  # Wait for 1 minute
+            await asyncio.sleep(59)  # Wait for 1 minute
 
     async def start_status_updates(self):
         """Start periodic updates for the status message."""
