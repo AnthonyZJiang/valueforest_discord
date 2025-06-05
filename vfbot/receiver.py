@@ -41,18 +41,15 @@ class MessageReceiver(selfcord.Client):
                         if message.author.display_name != author_id_name:
                             continue
                 c['author'] = c['author_filter'][message.author.id]
-            config = c
-            break
-        if not config:
-            return
-        logger.info(f"On message: Received message {message.id} from {message.author.display_name} in {message.channel.name}.")
-        msg = VFMessage.from_dc_msg(message, config)
-        if msg.is_webhook:
-            self.send_webhook_message(msg)
-        else:
-            self.sender.forward_message(msg)
-        
-        await asyncio.sleep(2)
+                
+            logger.info(f"On message: Received message {message.id} from {message.author.display_name} in {message.channel.name}.")
+            msg = VFMessage.from_dc_msg(message, c)
+            if msg.is_webhook:
+                self.send_webhook_message(msg)
+            else:
+                self.sender.forward_message(msg)
+            
+            await asyncio.sleep(2)
         
     def send_webhook_message(self, message: VFMessage):
         for webhook_config in message.webhook_configs:
