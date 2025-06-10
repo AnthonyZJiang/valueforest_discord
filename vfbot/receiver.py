@@ -70,7 +70,11 @@ class MessageReceiver(selfcord.Client):
             return
         count = 0
         while True:
-            hist = [msg async for msg in channel.history(limit=100, after=after, oldest_first=True)]
+            try:
+                hist = [msg async for msg in channel.history(limit=100, after=after, oldest_first=True)]
+            except selfcord.Forbidden:
+                logger.error(f"Try to forward history messages from a channel {from_channel_id} but got a Forbidden error.")
+                return
             if len(hist) == 0:
                 break
             for message in hist:
@@ -82,5 +86,8 @@ class MessageReceiver(selfcord.Client):
         
     async def forward_history_messages(self, after: datetime, rate: int = 2):
         for id in self.config.channel_list:
+            if self.channels[id].get('ignore_forward_history', False):
+                logger.info(f"Ignoring forward history messages from {id}.")
+                continue
             await self.forward_history_messages_by_channel(id, after, rate)
         logger.info(f"All history messages forwarded.")
