@@ -84,6 +84,8 @@ class VFConfig:
                 continue
             this_channel_configs = []
             for c_config in channel_configs:
+                if not c_config.get('enabled', True):
+                    continue
                 if self._test_mode['enabled'] and self._test_mode['flagged_only'] and not c_config.get('flag_test_mode', False):
                     continue
                 set_author_config(c_config, author_mapping, author_names_checklist)
