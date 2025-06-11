@@ -13,7 +13,7 @@ from .vfconfig import VFConfig
 
 VERSION: str = 'SMK-2.1.1'
 
-stream_handler = setup_logging()
+stream_handler = setup_logging('.log/vfbot.log')
 logger = logging.getLogger(__name__)
 
 def parse_date_arg(arg: str) -> datetime:

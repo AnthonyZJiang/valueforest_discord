@@ -40,11 +40,12 @@ class MessageSender(discord.Client):
     async def send_message(self, message: VFMessage) -> discord.Message:
         for channel_id in message.target_channel_ids:
             channel = self.get_cached_channel(channel_id)
-            logger.info(f"Send message: Sending message to {channel.name}")
+            logger.debug(f"Send message: Sending message to {channel.name}")
             return await channel.send(message.content, embeds=message.embeds)
     
     async def send_plain_message(self, content: str, channel_id: int) -> discord.Message:
         channel = self.get_cached_channel(channel_id)
+        logger.debug(f"Send plain message: Sending message to {channel.name}")
         return await channel.send(content)
             
     async def delete_messages(self, message: discord.Message):

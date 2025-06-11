@@ -1,5 +1,6 @@
 .venv
 .vscode
+.log
 
 __pycache__
 .DS_Store
