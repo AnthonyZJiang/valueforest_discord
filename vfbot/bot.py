@@ -78,6 +78,9 @@ class Bot:
         self.start_monitor()
             
     def start_monitor(self):
+        def receiver_ok():
+            return self.receiver and not self.receiver.is_closed() and self.receiver.ws._keep_alive is not None
+        
         def wait_for_discord():
             while True:
                 if self.receiver and self.receiver.is_ready() and self.sender and self.sender.is_ready():
@@ -94,7 +97,7 @@ class Bot:
                     logger.info("Waiting for discord bots to start...")
                     time.sleep(5)
                     return
-                if not self.receiver.is_closed():
+                if receiver_ok():
                     logger.info("Discord reconnected.")
                     return
                 time.sleep(1)
@@ -103,7 +106,7 @@ class Bot:
         while True:
             try:
                 wait_for_discord()
-                if self.receiver.is_closed():
+                if not receiver_ok():
                     wait_for_resume()
             except KeyboardInterrupt:
                 logger.info("Ctrl+C again to shut down...")
