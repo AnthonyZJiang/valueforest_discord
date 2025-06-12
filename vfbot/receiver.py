@@ -18,7 +18,7 @@ class MessageReceiver(selfcord.Client):
         self.channels = config.repost_settings
         self.sender = sender
         self.forward_history_since = None
-        self.last_message_time = None
+        self.last_message_time = time.time()
         
     async def on_ready(self):
         logger.info(f'Receiver logged on as {self.user}')

@@ -133,8 +133,14 @@ class Bot:
         
         sender_future = executor.submit(self.sender.run, self.config.bot_token, log_handler=stream_handler)
         receiver_future = executor.submit(self.receiver.run, self.config.self_token, log_handler=stream_handler)
+        
+        logger.info("> Commissioning discord bots...")
         try:
+            # Wait for sender to be ready before scheduling keep-alive agent
+            while not self.sender.is_ready():
+                time.sleep(0.1)
             asyncio.run_coroutine_threadsafe(self.keep_alive_agent.start(), self.sender.loop)
+            
             sender_future.result()
             receiver_future.result()
         except KeyboardInterrupt:
