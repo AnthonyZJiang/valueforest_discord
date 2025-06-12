@@ -9,7 +9,7 @@ from .sender import MessageSender
 from .receiver import MessageReceiver
 
 
-STATUS_MESSAGE_CONFIG_FILE = "status_message.config.json"
+KEEP_ALIVE_CONFIG_FILE = "keepalive.config.json"
 CROSS_CHECK_HEARTBEAT_TIMEOUT = 5
 
 logger = logging.getLogger(__name__)
@@ -80,11 +80,11 @@ class KeepAliveAgent:
         while not self.bot_ready:
             await asyncio.sleep(1)
             
-        if not os.path.exists(STATUS_MESSAGE_CONFIG_FILE):
+        if not os.path.exists(KEEP_ALIVE_CONFIG_FILE):
             logger.warning("Status message config file not found, keep alive agent is disabled...")
             return
         
-        with open(STATUS_MESSAGE_CONFIG_FILE, "r") as f:
+        with open(KEEP_ALIVE_CONFIG_FILE, "r") as f:
             self.config = json.load(f) # type: dict[str, ]
             if not self.config.get('status_message_id') and self.config.get('status_message_channel_id'):
                 await self.create_status_message(self.config['status_message_channel_id'])
