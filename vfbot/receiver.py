@@ -3,6 +3,7 @@ import asyncio
 from datetime import datetime, timedelta
 import selfcord
 from discord_webhook import DiscordWebhook
+import time
 
 from .sender import MessageSender
 from .vfmessage import VFMessage
@@ -17,6 +18,7 @@ class MessageReceiver(selfcord.Client):
         self.channels = config.repost_settings
         self.sender = sender
         self.forward_history_since = None
+        self.last_message_time = None
         
     async def on_ready(self):
         logger.info(f'Receiver logged on as {self.user}')
@@ -25,9 +27,9 @@ class MessageReceiver(selfcord.Client):
             await self.forward_history_messages(after=self.forward_history_since)
             
     async def on_message(self, message: selfcord.Message):
+        self.last_message_time = time.time()
         if message.channel.id not in self.config.channel_list:
             return
-        config = None
         for c in self.channels[message.channel.id]:
             if author_ids := c.get('author_filter', {}).keys():
                 if message.author.id not in author_ids:

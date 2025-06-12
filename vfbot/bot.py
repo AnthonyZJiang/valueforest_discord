@@ -4,14 +4,17 @@ import re
 import time
 from datetime import datetime, timezone, timedelta
 from threading import Thread
+import asyncio
 
 from .utils import setup_logging
 from .sender import MessageSender
 from .receiver import MessageReceiver
 from .vfconfig import VFConfig
+from .keepaliveagent import KeepAliveAgent
 
 
-VERSION: str = 'SMK-2.1.1'
+VERSION: str = 'SMK-2.2.0'
+AUTO_RESUME_TIMEOUT = 5
 
 stream_handler = setup_logging('.log/vfbot.log')
 logger = logging.getLogger(__name__)
@@ -60,7 +63,7 @@ class Bot:
         self.pull_since = None
         self.sender = None
         self.receiver = None
-        
+        self.keep_alive_agent = None
         logger.info("Bot version: %s", VERSION)
     
         self.config = VFConfig('config.json')
@@ -78,35 +81,31 @@ class Bot:
         self.start_monitor()
             
     def start_monitor(self):
-        def receiver_ok():
-            return self.receiver and not self.receiver.is_closed() and self.receiver.ws._keep_alive is not None
-        
         def wait_for_discord():
             while True:
-                if self.receiver and self.receiver.is_ready() and self.sender and self.sender.is_ready():
+                if self.keep_alive_agent and self.keep_alive_agent.bot_ready:
                     break
                 time.sleep(1)
         
         def wait_for_resume():
             resume_timer = time.time()
-            logger.warning("Websocket closed, waiting for it to auto-resume...")
+            logger.warning("Discord bot is offline, waiting for it to auto-resume...")
             while True:
-                if time.time() - resume_timer > websocket_resume_timeout:
-                    logger.warning("Websocket auto-resume timeout, restarting...")
+                if time.time() - resume_timer > AUTO_RESUME_TIMEOUT:
+                    logger.warning("Auto-resume timeout, restarting...")
                     self.restart_discord_thread()
                     logger.info("Waiting for discord bots to start...")
                     time.sleep(5)
                     return
-                if receiver_ok():
+                if self.keep_alive_agent.receiver_ok:
                     logger.info("Discord reconnected.")
                     return
                 time.sleep(1)
         
-        websocket_resume_timeout = 5
         while True:
             try:
                 wait_for_discord()
-                if not receiver_ok():
+                if not self.keep_alive_agent.receiver_ok:
                     wait_for_resume()
             except KeyboardInterrupt:
                 logger.info("Ctrl+C again to shut down...")
@@ -125,6 +124,7 @@ class Bot:
         logger.info("> Building discord bots...")
         self.sender = MessageSender()
         self.receiver = MessageReceiver(config=self.config, sender=self.sender)
+        self.keep_alive_agent = KeepAliveAgent(sender=self.sender, receiver=self.receiver)
         
         self.receiver.forward_history_since = self.pull_since
         self.pull_since = None
@@ -133,9 +133,8 @@ class Bot:
         
         sender_future = executor.submit(self.sender.run, self.config.bot_token, log_handler=stream_handler)
         receiver_future = executor.submit(self.receiver.run, self.config.self_token, log_handler=stream_handler)
-        
-        logger.info("> Commissioning discord bots...")
         try:
+            asyncio.run_coroutine_threadsafe(self.keep_alive_agent.start(), self.sender.loop)
             sender_future.result()
             receiver_future.result()
         except KeyboardInterrupt:
