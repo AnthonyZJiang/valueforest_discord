@@ -15,7 +15,10 @@ CROSS_CHECK_HEARTBEAT_TIMEOUT = 5
 logger = logging.getLogger(__name__)
 
 class KeepAliveAgent:
+    id = 0
     def __init__(self, sender: MessageSender, receiver: MessageReceiver):
+        self._id = KeepAliveAgent.id
+        KeepAliveAgent.id += 1
         self.sender = sender
         self.receiver = receiver
         
@@ -41,16 +44,35 @@ class KeepAliveAgent:
         return self.receiver and self.receiver.is_ready() and self.sender and self.sender.is_ready()
     
     async def start(self):
-        logger.info(f"Starting keep alive agent...")
+        logger.info(f"Starting keep alive agent #{self._id}...")
         await self.load_config()
-        asyncio.create_task(self.update_status_message())
-        asyncio.create_task(self.send_cross_check_heartbeat())
+        self.status_report_task = asyncio.create_task(self.update_status_message())
+        self.cross_check_heartbeat_task = asyncio.create_task(self.send_cross_check_heartbeat())
+        
+    async def close(self):
+        logger.info(f"Closing keep alive agent #{self._id}...")
+        self.status_report_enabled = False
+        self.cross_check_heartbeat_enabled = False
+        self.status_message = None
+        
+        self.status_report_task.cancel()
+        self.cross_check_heartbeat_task.cancel()
+        
+        try:
+            await asyncio.wait_for(self.status_report_task, timeout=5.0)
+        except (asyncio.CancelledError, asyncio.TimeoutError):
+            pass
+        
+        try:
+            await asyncio.wait_for(self.cross_check_heartbeat_task, timeout=5.0)
+        except (asyncio.CancelledError, asyncio.TimeoutError):
+            pass
     
     async def update_status_message(self):
         if not self.status_report_enabled:
             return
         logger.info(f"Status reporting is enabled, sending status updates to {self.status_message.channel.name}...")
-        while True:
+        while self.status_report_enabled:
             if not self.status_message or not self.receiver_ok:
                 await asyncio.sleep(1)
                 continue
@@ -68,10 +90,10 @@ class KeepAliveAgent:
         if not self.cross_check_heartbeat_enabled:
             return
         logger.info(f"Cross check heartbeat is enabled, sending heartbeat to {self.cross_check_heartbeat_channel_id} every {self.cross_check_heartbeat_interval} seconds...")
-        while True:
+        while self.cross_check_heartbeat_enabled:
             current_time = int(datetime.datetime.now().timestamp())
             await self.sender.send_plain_message(
-                f"{self.cross_check_heartbeat_message_prefix} 心跳: <t:{current_time}>",
+                f"{self.cross_check_heartbeat_message_prefix} #{self._id} 心跳: <t:{current_time}>",
                 self.cross_check_heartbeat_channel_id
             )
             await asyncio.sleep(self.cross_check_heartbeat_interval)

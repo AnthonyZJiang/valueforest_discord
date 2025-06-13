@@ -28,11 +28,17 @@ def setup_logging(log_file: str = None) -> logging.Handler:
     if not os.path.exists(os.path.dirname(log_file)):
         os.makedirs(os.path.dirname(log_file))
         
-    file_handler = RotatingFileHandler(log_file, maxBytes=10*1024*1024, backupCount=10)
-    file_handler.setLevel(logging.INFO)
+    file_handler_info = RotatingFileHandler(log_file, maxBytes=5*1024*1024, backupCount=10)
+    file_handler_info.setLevel(logging.INFO)
     f_format = logging.Formatter('%(asctime)s %(levelname)-8s %(name)s::%(module)s %(message)s', '%Y-%m-%d %H:%M:%S')
-    file_handler.setFormatter(f_format)
+    file_handler_info.setFormatter(f_format)
     
-    logger.addHandler(file_handler)
+    file_handler_debug = RotatingFileHandler(log_file.rstrip('.log') + '_debug.log', maxBytes=5*1024*1024, backupCount=10)
+    file_handler_debug.setLevel(logging.DEBUG)
+    f_format = logging.Formatter('%(asctime)s %(levelname)-8s %(name)s::%(module)s %(message)s', '%Y-%m-%d %H:%M:%S')
+    file_handler_debug.setFormatter(f_format)
+    
+    logger.addHandler(file_handler_info)
+    logger.addHandler(file_handler_debug)
     
     return stream_handler

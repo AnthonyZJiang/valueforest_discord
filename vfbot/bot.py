@@ -109,17 +109,24 @@ class Bot:
                     wait_for_resume()
             except KeyboardInterrupt:
                 logger.info("Ctrl+C again to shut down...")
-                break
+                return
             except Exception as e:
                 logger.error("Error in monitor thread: %s", e, exc_info=True)
                 time.sleep(1)
+            time.sleep(1)
             
     def restart_discord_thread(self):
+        asyncio.run_coroutine_threadsafe(self.close(), self.sender.loop)
         self.discord_thread.join(timeout=1)
         self.discord_thread = Thread(target=self.start_discord)
         self.discord_thread.start()
         logger.info("Discord thread restart requested.")
     
+    async def close(self):
+        await self.keep_alive_agent.close()
+        await self.receiver.close()
+        await self.sender.close()
+        
     def start_discord(self):
         logger.info("> Building discord bots...")
         self.sender = MessageSender()
@@ -145,3 +152,6 @@ class Bot:
             receiver_future.result()
         except KeyboardInterrupt:
             logger.info("Ctrl+C again to shut down...")
+        except asyncio.CancelledError:
+            logger.error("Bot cancelled.")
+            pass

@@ -12,8 +12,11 @@ from .vfconfig import VFConfig
 logger = logging.getLogger(__name__)
 
 class MessageReceiver(selfcord.Client):
+    id = 0
     def __init__(self, config: VFConfig, sender: MessageSender):
         super().__init__()
+        self._id = MessageReceiver.id
+        MessageReceiver.id += 1
         self.config = config
         self.channels = config.repost_settings
         self.sender = sender
@@ -21,7 +24,7 @@ class MessageReceiver(selfcord.Client):
         self.last_message_time = time.time()
         
     async def on_ready(self):
-        logger.info(f'Receiver logged on as {self.user}')
+        logger.info(f'Receiver #{self._id} logged on as {self.user}')
         if self.forward_history_since:
             logger.info(f"Forwarding messages since {self.forward_history_since}")
             await self.forward_history_messages(after=self.forward_history_since)
@@ -44,7 +47,7 @@ class MessageReceiver(selfcord.Client):
                             continue
                 c['author'] = c['author_filter'][message.author.id]
                 
-            logger.debug(f"On message: Received message {message.id} from {message.author.display_name} in {message.channel.name}.")
+            logger.debug(f"(Receiver #{self._id}) On message: Received message {message.id} from {message.author.display_name} in {message.channel.name}.")
             msg = VFMessage.from_dc_msg(message, c)
             if msg.is_webhook:
                 self.send_webhook_message(msg)
@@ -62,7 +65,7 @@ class MessageReceiver(selfcord.Client):
                 webhook.avatar_url = message.raw_msg_carrier.author.display_avatar.url
             webhook.embeds = message.embeds
             res = webhook.execute()
-            logger.debug(f"Sent webhook message. Status code: {res.status_code}.")
+            logger.debug(f"(Receiver #{self._id}) Sent webhook message. Status code: {res.status_code}.")
     
     async def forward_history_messages_by_channel(self, from_channel_id: int, after: datetime, rate: int = 2):
         logger.info(f"Forwarding history messages from {from_channel_id} after {after}.")
