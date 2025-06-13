@@ -1,14 +1,9 @@
 import asyncio
 import logging
-import datetime
-import json
-import os
 
 import discord
 from .vfmessage import VFMessage
 
-
-STATUS_MESSAGE_CONFIG_FILE = "status_message.config.json"
 
 logger = logging.getLogger(__name__)
 
@@ -18,15 +13,7 @@ class MessageSender(discord.Client):
         intents.message_content = True
         super().__init__(intents=intents)
         
-        self.channels = {}  # type: dict[int, discord.TextChannel]
-        
-        self.status_message = None  # type: discord.Message | None
-        self.status_update_task = None  # type: asyncio.Task | None
-        
-        self.cross_check_heartbeat_interval = None  # type: int | None
-        self.cross_check_heartbeat_message_prefix = None  # type: str | None
-        self.cross_check_heartbeat_channel_id = None  # type: int | None
-        self.cross_check_update_task = None  # type: asyncio.Task | None
+        self.channels = {}  # type: dict[int, discord.TextChannel] 
         
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)

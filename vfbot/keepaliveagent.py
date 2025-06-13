@@ -10,7 +10,7 @@ from .receiver import MessageReceiver
 
 
 KEEP_ALIVE_CONFIG_FILE = "keepalive.config.json"
-CROSS_CHECK_HEARTBEAT_TIMEOUT = 5
+HANDSHAKE_TIMEOUT = 5
 
 logger = logging.getLogger(__name__)
 
@@ -23,20 +23,20 @@ class KeepAliveAgent:
         self.receiver = receiver
         
         self.status_report_enabled = False
-        self.cross_check_heartbeat_enabled = False
+        self.handshake_enabled = False
         
         self.config = None # type: dict[str, ]
         self.status_message = None
-        self.cross_check_heartbeat_channel_id = None
-        self.cross_check_heartbeat_message_prefix = None
-        self.cross_check_heartbeat_interval = None
+        self.handshake_channel_id = None
+        self.handshake_message_prefix = None
+        self.handshake_interval = None
         
     @property
     def receiver_ok(self):
         if not self.receiver or self.receiver.is_closed() or self.receiver.ws._keep_alive is None:
             return False
-        if self.cross_check_heartbeat_interval:
-            return time.time() - self.receiver.last_message_time < self.cross_check_heartbeat_interval + CROSS_CHECK_HEARTBEAT_TIMEOUT
+        if self.handshake_interval:
+            return time.time() - self.receiver.last_message_time < self.handshake_interval + HANDSHAKE_TIMEOUT
         return True
     
     @property
@@ -47,16 +47,16 @@ class KeepAliveAgent:
         logger.info(f"Starting keep alive agent #{self._id}...")
         await self.load_config()
         self.status_report_task = asyncio.create_task(self.update_status_message())
-        self.cross_check_heartbeat_task = asyncio.create_task(self.send_cross_check_heartbeat())
+        self.handshake_task = asyncio.create_task(self.send_handshake())
         
     async def close(self):
         logger.info(f"Closing keep alive agent #{self._id}...")
         self.status_report_enabled = False
-        self.cross_check_heartbeat_enabled = False
+        self.handshake_enabled = False
         self.status_message = None
         
         self.status_report_task.cancel()
-        self.cross_check_heartbeat_task.cancel()
+        self.handshake_task.cancel()
         
         try:
             await asyncio.wait_for(self.status_report_task, timeout=5.0)
@@ -64,7 +64,7 @@ class KeepAliveAgent:
             pass
         
         try:
-            await asyncio.wait_for(self.cross_check_heartbeat_task, timeout=5.0)
+            await asyncio.wait_for(self.handshake_task, timeout=5.0)
         except (asyncio.CancelledError, asyncio.TimeoutError):
             pass
     
@@ -86,17 +86,17 @@ class KeepAliveAgent:
             
             await asyncio.sleep(59)  # Wait for 1 minute
             
-    async def send_cross_check_heartbeat(self):
-        if not self.cross_check_heartbeat_enabled:
+    async def send_handshake(self):
+        if not self.handshake_enabled:
             return
-        logger.info(f"Cross check heartbeat is enabled, sending heartbeat to {self.cross_check_heartbeat_channel_id} every {self.cross_check_heartbeat_interval} seconds...")
-        while self.cross_check_heartbeat_enabled:
+        logger.info(f"Handshake is enabled, sending handshake to {self.handshake_channel_id} every {self.handshake_interval} seconds...")
+        while self.handshake_enabled:
             current_time = int(datetime.datetime.now().timestamp())
             await self.sender.send_plain_message(
-                f"{self.cross_check_heartbeat_message_prefix} #{self._id} 心跳: <t:{current_time}>",
-                self.cross_check_heartbeat_channel_id
+                f"{self.handshake_message_prefix} #{self._id} 🤝: <t:{current_time}>",
+                self.handshake_channel_id
             )
-            await asyncio.sleep(self.cross_check_heartbeat_interval)
+            await asyncio.sleep(self.handshake_interval)
             
     async def load_config(self):
         while not self.bot_ready:
@@ -118,15 +118,15 @@ class KeepAliveAgent:
                 logger.warning("Status message config not found, status reporting is disabled...")
                 return
                 
-            cross_check_heartbeat = self.config.get('cross_check_heartbeat', {})
-            if not cross_check_heartbeat:
-                logger.warning("Cross check heartbeat config not found, heartbeat check is disabled...")
+            handshake = self.config.get('handshake', {})
+            if not handshake:
+                logger.warning("Handshake config not found, handshake check is disabled...")
                 return
-            self.cross_check_heartbeat_channel_id = cross_check_heartbeat.get('channel_id')
-            self.cross_check_heartbeat_message_prefix = cross_check_heartbeat.get('message_prefix', 'VF')
-            self.cross_check_heartbeat_interval = cross_check_heartbeat.get('interval', 30)
-            if self.cross_check_heartbeat_channel_id:
-                self.cross_check_heartbeat_enabled = True
+            self.handshake_channel_id = handshake.get('channel_id')
+            self.handshake_message_prefix = handshake.get('message_prefix', 'VF')
+            self.handshake_interval = handshake.get('interval', 30)
+            if self.handshake_channel_id:
+                self.handshake_enabled = True
 
     async def create_status_message(self, channel_id: int):
         self.status_message = await self.sender.send_plain_message(
@@ -142,6 +142,6 @@ class KeepAliveAgent:
             return
         self.config['status_message_id'] = self.status_message.id
         self.config['status_message_channel_id'] = self.status_message.channel.id
-        with open(STATUS_MESSAGE_CONFIG_FILE, "w") as f:
+        with open(KEEP_ALIVE_CONFIG_FILE, "w") as f:
             json.dump(self.config, f, indent=4)
-        logger.debug(f"Status message saved to {STATUS_MESSAGE_CONFIG_FILE}")
+        logger.debug(f"Status message saved to {KEEP_ALIVE_CONFIG_FILE}")
