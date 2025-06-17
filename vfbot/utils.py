@@ -1,5 +1,5 @@
 import logging
-from logging.handlers import RotatingFileHandler
+from logging.handlers import TimedRotatingFileHandler
 from discord.utils import _ColourFormatter
 import os
 
@@ -28,12 +28,12 @@ def setup_logging(log_file: str = None) -> logging.Handler:
     if not os.path.exists(os.path.dirname(log_file)):
         os.makedirs(os.path.dirname(log_file))
         
-    file_handler_info = RotatingFileHandler(log_file, maxBytes=5*1024*1024, backupCount=10)
+    file_handler_info = TimedRotatingFileHandler(log_file, when='D', interval=1, backupCount=7)
     file_handler_info.setLevel(logging.INFO)
     f_format = logging.Formatter('%(asctime)s %(levelname)-8s %(name)s::%(module)s %(message)s', '%Y-%m-%d %H:%M:%S')
     file_handler_info.setFormatter(f_format)
     
-    file_handler_debug = RotatingFileHandler(log_file.rstrip('.log') + '_debug.log', maxBytes=5*1024*1024, backupCount=10)
+    file_handler_debug = TimedRotatingFileHandler(log_file.rstrip('.log') + '_debug.log', when='D', interval=1, backupCount=7)
     file_handler_debug.setLevel(logging.DEBUG)
     f_format = logging.Formatter('%(asctime)s %(levelname)-8s %(name)s::%(module)s %(message)s', '%Y-%m-%d %H:%M:%S')
     file_handler_debug.setFormatter(f_format)

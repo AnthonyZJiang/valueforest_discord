@@ -22,6 +22,7 @@ class MessageReceiver(selfcord.Client):
         self.sender = sender
         self.forward_history_since = None
         self.last_message_time = time.time()
+        self.handshake_config = None # type: dict[str, ]
         
     async def on_ready(self):
         logger.info(f'Receiver #{self._id} logged on as {self.user}')
@@ -31,6 +32,8 @@ class MessageReceiver(selfcord.Client):
             
     async def on_message(self, message: selfcord.Message, is_forward: bool = False):
         self.last_message_time = time.time()
+        if self.handshake_config and await self.ack_handshake(message):
+            return
         if message.channel.id not in self.config.channel_list:
             return
         for c in self.channels[message.channel.id]:
@@ -95,3 +98,16 @@ class MessageReceiver(selfcord.Client):
         for id in self.config.channel_list:
             await self.forward_history_messages_by_channel(id, after, rate)
         logger.info(f"All history messages forwarded.")
+
+    async def ack_handshake(self, message: selfcord.Message):
+        if message.channel.id != self.handshake_config['channel_id'] or not message.content.startswith(self.handshake_config['message_tag']):
+            return False
+        logger.debug("Handshake received.")
+        if self.handshake_config.get('handshake_ack_webhook'):
+            webhook = DiscordWebhook(url=self.handshake_config['handshake_ack_webhook'])
+            webhook.content = f"Handshake received from {message.author.display_name}."
+            webhook.username = message.author.display_name + " (receiver)"
+            webhook.avatar_url = message.author.display_avatar.url
+            webhook.execute()
+        self.handshake_config = None
+        return True

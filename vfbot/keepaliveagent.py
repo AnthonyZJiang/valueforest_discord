@@ -92,8 +92,9 @@ class KeepAliveAgent:
         logger.info(f"Handshake is enabled, sending handshake to {self.handshake_channel_id} every {self.handshake_interval} seconds...")
         while self.handshake_enabled:
             current_time = int(datetime.datetime.now().timestamp())
+            self.receiver.handshake_config = self.config['handshake']
             await self.sender.send_plain_message(
-                f"{self.handshake_message_prefix} #{self._id} 🤝: <t:{current_time}>",
+                f"{self.handshake_tag} #{self._id} 🤝: <t:{current_time}>",
                 self.handshake_channel_id
             )
             await asyncio.sleep(self.handshake_interval)
@@ -123,7 +124,7 @@ class KeepAliveAgent:
                 logger.warning("Handshake config not found, handshake check is disabled...")
                 return
             self.handshake_channel_id = handshake.get('channel_id')
-            self.handshake_message_prefix = handshake.get('message_prefix', 'VF')
+            self.handshake_tag = handshake.get('message_tag')
             self.handshake_interval = handshake.get('interval', 30)
             if self.handshake_channel_id:
                 self.handshake_enabled = True
