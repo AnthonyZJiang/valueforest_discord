@@ -88,7 +88,7 @@ class KeepAliveAgent:
             if self.receiver_ok and self.critical_status_webhook and not self._status_ok_reported:
                 self._status_ok_reported = True
                 self._status_bad_reported = False
-                self.send_critical_status_report(":green_circle: Robot is now online. Instance: #{self._id}")
+                self.send_critical_status_report(f":green_circle: Robot is online. Instance: #{self._id}")
                 
             current_time = int(datetime.datetime.now().timestamp())
             new_content = f"机器人上次心跳报告: <t:{current_time}>, <t:{current_time}:R>"
