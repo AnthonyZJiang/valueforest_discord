@@ -13,7 +13,7 @@ from .vfconfig import VFConfig
 from .keepaliveagent import KeepAliveAgent
 
 
-VERSION: str = 'SMK-2.2.2'
+VERSION: str = 'SMK-2.2.3'
 AUTO_RESUME_TIMEOUT = 5
 
 stream_handler = setup_logging('.log/vfbot.log')
