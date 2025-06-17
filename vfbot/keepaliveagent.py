@@ -4,6 +4,7 @@ import logging
 import asyncio
 import datetime
 import time
+from discord_webhook import DiscordWebhook
 
 from .sender import MessageSender
 from .receiver import MessageReceiver
@@ -30,6 +31,10 @@ class KeepAliveAgent:
         self.handshake_channel_id = None
         self.handshake_message_prefix = None
         self.handshake_interval = None
+        
+        self.critical_status_webhook = None
+        self._status_ok_reported = False
+        self._status_bad_reported = False
         
     @property
     def receiver_ok(self):
@@ -74,8 +79,17 @@ class KeepAliveAgent:
         logger.info(f"Status reporting is enabled, sending status updates to {self.status_message.channel.name}...")
         while self.status_report_enabled:
             if not self.status_message or not self.receiver_ok:
+                if not self.receiver_ok and self.critical_status_webhook and not self._status_bad_reported:
+                    self._status_bad_reported = True
+                    self._status_ok_reported = False
+                    self.send_critical_status_report(":red_circle: Robot is offline.")
                 await asyncio.sleep(1)
                 continue
+            if self.receiver_ok and self.critical_status_webhook and not self._status_ok_reported:
+                self._status_ok_reported = True
+                self._status_bad_reported = False
+                self.send_critical_status_report(":green_circle: Robot is now online. Instance: #{self._id}")
+                
             current_time = int(datetime.datetime.now().timestamp())
             new_content = f"机器人上次心跳报告: <t:{current_time}>, <t:{current_time}:R>"
             
@@ -109,6 +123,7 @@ class KeepAliveAgent:
         
         with open(KEEP_ALIVE_CONFIG_FILE, "r") as f:
             self.config = json.load(f) # type: dict[str, ]
+            self.critical_status_webhook = self.config.get('critical_status_webhook')
             if not self.config.get('status_message_id') and self.config.get('status_message_channel_id'):
                 await self.create_status_message(self.config['status_message_channel_id'])
             else:
@@ -146,3 +161,12 @@ class KeepAliveAgent:
         with open(KEEP_ALIVE_CONFIG_FILE, "w") as f:
             json.dump(self.config, f, indent=4)
         logger.debug(f"Status message saved to {KEEP_ALIVE_CONFIG_FILE}")
+        
+    def send_critical_status_report(self, message: str):
+        if not self.critical_status_webhook:
+            return
+        webhook = DiscordWebhook(url=self.critical_status_webhook)
+        webhook.content = message
+        webhook.username = self.sender.user.display_name
+        webhook.avatar_url = self.sender.user.display_avatar.url
+        webhook.execute()
