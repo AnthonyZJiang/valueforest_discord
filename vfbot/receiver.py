@@ -29,11 +29,13 @@ class MessageReceiver(selfcord.Client):
             logger.info(f"Forwarding messages since {self.forward_history_since}")
             await self.forward_history_messages(after=self.forward_history_since)
             
-    async def on_message(self, message: selfcord.Message):
+    async def on_message(self, message: selfcord.Message, is_forward: bool = False):
         self.last_message_time = time.time()
         if message.channel.id not in self.config.channel_list:
             return
         for c in self.channels[message.channel.id]:
+            if is_forward and c.get('ignore_forward_history', False):
+                continue
             if author_ids := c.get('author_filter', {}).keys():
                 if message.author.id not in author_ids:
                     continue
@@ -83,7 +85,7 @@ class MessageReceiver(selfcord.Client):
             if len(hist) == 0:
                 break
             for message in hist:
-                await self.on_message(message)
+                await self.on_message(message, is_forward=True)
                 count += 1
             after = hist[-1].created_at + timedelta(microseconds=1)
 
@@ -91,8 +93,5 @@ class MessageReceiver(selfcord.Client):
         
     async def forward_history_messages(self, after: datetime, rate: int = 2):
         for id in self.config.channel_list:
-            if self.channels[id].get('ignore_forward_history', False):
-                logger.debug(f"Ignoring forward history messages from {id}.")
-                continue
             await self.forward_history_messages_by_channel(id, after, rate)
         logger.info(f"All history messages forwarded.")
