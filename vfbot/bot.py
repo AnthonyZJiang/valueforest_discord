@@ -90,8 +90,6 @@ class Bot:
         def wait_for_resume():
             resume_timer = time.time()
             logger.warning("Discord bot is offline, waiting for it to auto-resume...")
-            logger_interval = 30
-            logger_count = 1
             while True:
                 if time.time() - resume_timer > AUTO_RESUME_TIMEOUT:
                     logger.warning("Auto-resume timeout, restarting...")
@@ -103,11 +101,9 @@ class Bot:
                     logger.info("Discord reconnected.")
                     return
                 time.sleep(1)
-                logger_count += 1
-                if logger_count == logger_interval:
-                    logger.debug(f"Has been good for {logger_count} seconds...")
-                    logger_count = 1
         
+        logger_interval = 30
+        logger_count = 1
         while True:
             try:
                 wait_for_discord()
@@ -120,6 +116,10 @@ class Bot:
                 logger.error("Error in monitor thread: %s", e, exc_info=True)
                 time.sleep(1)
             time.sleep(1)
+            logger_count += 1
+            if logger_count == logger_interval:
+                logger.debug(f"Has been good for {logger_count} seconds...")
+                logger_count = 1
             
     def restart_discord_thread(self):
         asyncio.run_coroutine_threadsafe(self.close(), self.sender.loop)
