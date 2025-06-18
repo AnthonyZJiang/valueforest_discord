@@ -64,6 +64,7 @@ class Bot:
         self.sender = None
         self.receiver = None
         self.keep_alive_agent = None
+        self.do_report_online = True
         logger.info("Bot version: %s", VERSION)
     
         self.config = VFConfig('config.json')
@@ -84,6 +85,9 @@ class Bot:
         def wait_for_discord():
             while True:
                 if self.keep_alive_agent and self.keep_alive_agent.bot_ready:
+                    if self.do_report_online:
+                        self.keep_alive_agent.report_online()
+                        self.do_report_online = False
                     break
                 time.sleep(1)
         
@@ -93,6 +97,8 @@ class Bot:
             while True:
                 if time.time() - resume_timer > AUTO_RESUME_TIMEOUT:
                     logger.warning("Auto-resume timeout, restarting...")
+                    self.keep_alive_agent.report_offline()
+                    self.do_report_online = True
                     self.restart_discord_thread()
                     logger.info("Waiting for discord bots to start...")
                     time.sleep(5)

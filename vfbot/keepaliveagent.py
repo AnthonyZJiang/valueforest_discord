@@ -5,6 +5,7 @@ import asyncio
 import datetime
 import time
 from discord_webhook import DiscordWebhook
+from random import choice
 
 from .sender import MessageSender
 from .receiver import MessageReceiver
@@ -12,6 +13,9 @@ from .receiver import MessageReceiver
 
 KEEP_ALIVE_CONFIG_FILE = "keepalive.config.json"
 HANDSHAKE_TIMEOUT = 5
+
+SAD_EMOJIS = [":confounded:", ":disappointed:", ":sob:", ":cry:", ":broken_heart:", ":ghost:", ":skull_crossbones:", ":woozy_face:", ":head_bandage:", ":dizzy_face:", ":thunder_cloud_rain:"]
+HAPPY_EMOJIS = [":smiley:", ":zany_face:", ":innocent:",":saluting_face:", ":heart_eyes:", ":heart:", ":star_struck:", ":money_mouth:",":star2:",":sun:"]
 
 logger = logging.getLogger(__name__)
 
@@ -33,8 +37,6 @@ class KeepAliveAgent:
         self.handshake_interval = None
         
         self.critical_status_webhook = None
-        self._status_ok_reported = False
-        self._status_bad_reported = False
         
     @property
     def receiver_ok(self):
@@ -79,16 +81,8 @@ class KeepAliveAgent:
         logger.info(f"Status reporting is enabled, sending status updates to {self.status_message.channel.name}...")
         while self.status_report_enabled:
             if not self.status_message or not self.receiver_ok:
-                if not self.receiver_ok and self.critical_status_webhook and not self._status_bad_reported:
-                    self._status_bad_reported = True
-                    self._status_ok_reported = False
-                    self.send_critical_status_report(":red_circle: Robot is offline.")
                 await asyncio.sleep(1)
                 continue
-            if self.receiver_ok and self.critical_status_webhook and not self._status_ok_reported:
-                self._status_ok_reported = True
-                self._status_bad_reported = False
-                self.send_critical_status_report(f":green_circle: Robot is online. Instance: #{self._id}")
                 
             current_time = int(datetime.datetime.now().timestamp())
             new_content = f"机器人上次心跳报告: <t:{current_time}>, <t:{current_time}:R>"
@@ -170,3 +164,13 @@ class KeepAliveAgent:
         webhook.username = self.sender.user.display_name
         webhook.avatar_url = self.sender.user.display_avatar.url
         webhook.execute()
+        
+    def report_offline(self):
+        if not self.critical_status_webhook:
+            return
+        self.send_critical_status_report(f"<t:{int(datetime.datetime.now(tz=datetime.timezone.utc).timestamp())}> :red_circle: I am down at the moment {choice(SAD_EMOJIS)}")
+        
+    def report_online(self):
+        if not self.critical_status_webhook:
+            return
+        self.send_critical_status_report(f"<t:{int(datetime.datetime.now(tz=datetime.timezone.utc).timestamp())}> :green_circle: I am online {choice(HAPPY_EMOJIS)}")
