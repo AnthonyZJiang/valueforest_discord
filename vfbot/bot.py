@@ -5,6 +5,7 @@ import time
 from datetime import datetime, timezone, timedelta
 from threading import Thread
 import asyncio
+import random
 
 from .utils import setup_logging
 from .sender import MessageSender
@@ -82,11 +83,12 @@ class Bot:
         self.start_monitor()
             
     def start_monitor(self):
+        r = random.Random(1)
         def wait_for_discord():
             while True:
-                if self.keep_alive_agent and self.keep_alive_agent.bot_ready:
+                if self.keep_alive_agent and self.keep_alive_agent.bot_ready and self.keep_alive_agent.ready:
                     if self.do_report_online:
-                        self.keep_alive_agent.report_online()
+                        self.keep_alive_agent.report_online(r.random())
                         self.do_report_online = False
                     break
                 time.sleep(1)
@@ -97,7 +99,7 @@ class Bot:
             while True:
                 if time.time() - resume_timer > AUTO_RESUME_TIMEOUT:
                     logger.warning("Auto-resume timeout, restarting...")
-                    self.keep_alive_agent.report_offline()
+                    self.keep_alive_agent.report_offline(r.random())
                     self.do_report_online = True
                     self.restart_discord_thread()
                     logger.info("Waiting for discord bots to start...")

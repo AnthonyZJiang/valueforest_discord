@@ -5,7 +5,6 @@ import asyncio
 import datetime
 import time
 from discord_webhook import DiscordWebhook
-from random import choice
 
 from .sender import MessageSender
 from .receiver import MessageReceiver
@@ -26,6 +25,7 @@ class KeepAliveAgent:
         KeepAliveAgent.id += 1
         self.sender = sender
         self.receiver = receiver
+        self.ready = False
         
         self.status_report_enabled = False
         self.handshake_enabled = False
@@ -55,6 +55,7 @@ class KeepAliveAgent:
         await self.load_config()
         self.status_report_task = asyncio.create_task(self.update_status_message())
         self.handshake_task = asyncio.create_task(self.send_handshake())
+        self.ready = True
         
     async def close(self):
         logger.info(f"Closing keep alive agent #{self._id}...")
@@ -165,12 +166,12 @@ class KeepAliveAgent:
         webhook.avatar_url = self.sender.user.display_avatar.url
         webhook.execute()
         
-    def report_offline(self):
+    def report_offline(self, random_number: int):
         if not self.critical_status_webhook:
             return
-        self.send_critical_status_report(f"<t:{int(datetime.datetime.now(tz=datetime.timezone.utc).timestamp())}> :red_circle: I am down at the moment {choice(SAD_EMOJIS)}")
+        self.send_critical_status_report(f"<t:{int(datetime.datetime.now(tz=datetime.timezone.utc).timestamp())}> :red_circle: I am down at the moment {SAD_EMOJIS[int(random_number * len(SAD_EMOJIS))]}")
         
-    def report_online(self):
+    def report_online(self, random_number: int):
         if not self.critical_status_webhook:
             return
-        self.send_critical_status_report(f"<t:{int(datetime.datetime.now(tz=datetime.timezone.utc).timestamp())}> :green_circle: I am online {choice(HAPPY_EMOJIS)}")
+        self.send_critical_status_report(f"<t:{int(datetime.datetime.now(tz=datetime.timezone.utc).timestamp())}> :green_circle: I am online {HAPPY_EMOJIS[int(random_number * len(HAPPY_EMOJIS))]}")
