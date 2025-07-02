@@ -6,6 +6,8 @@ from datetime import datetime, timezone, timedelta
 from threading import Thread
 import asyncio
 import random
+import dotenv
+import os
 
 from .utils import setup_logging
 from .sender import MessageSender
@@ -14,10 +16,12 @@ from .vfconfig import VFConfig
 from .keepaliveagent import KeepAliveAgent
 
 
+dotenv.load_dotenv()
+
 VERSION: str = 'SMK-2.2.3a'
 AUTO_RESUME_TIMEOUT = 5
 
-stream_handler = setup_logging('.log/vfbot.log')
+stream_handler = setup_logging(os.getenv('LOG_FILE'))
 logger = logging.getLogger(__name__)
 
 def parse_date_arg(arg: str) -> datetime:
