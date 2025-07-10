@@ -18,8 +18,8 @@ from .keepaliveagent import KeepAliveAgent
 
 dotenv.load_dotenv()
 
-VERSION: str = 'SMK-2.2.3a'
-AUTO_RESUME_TIMEOUT = 5
+VERSION: str = 'SMK-2.2.4'
+AUTO_RESUME_TIMEOUT = int(os.getenv('AUTO_RESUME_TIMEOUT', 5))
 
 stream_handler = setup_logging(os.getenv('LOG_FILE'))
 logger = logging.getLogger(__name__)
