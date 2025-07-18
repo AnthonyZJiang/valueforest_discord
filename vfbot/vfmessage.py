@@ -92,9 +92,15 @@ class VFMessage:
                   credit = dc_msg.jump_url, 
                   embeds = get_embeds(dc_msg.embeds),
                   reference_msg = dc_msg.reference.resolved if dc_msg.reference else None)
-        
-        if config.get('author_highlight', None) and dc_msg.author.id in config['author_highlight']:
-                msg.webhook_author_name = "【🚨关注用户🚨】" + msg.webhook_author_name
+        highlight_set = False
+        if config.get('role_highlight', None):
+            for role in dc_msg.author.roles:
+                if role.id in config['role_highlight']:
+                    msg.webhook_author_name = "【🚨关注用户🚨】" + msg.webhook_author_name
+                    highlight_set = True
+                    break
+        if not highlight_set and config.get('author_highlight', None) and dc_msg.author.id in config['author_highlight']:
+            msg.webhook_author_name = "【🚨关注用户🚨】" + msg.webhook_author_name
         return msg
         
     @property

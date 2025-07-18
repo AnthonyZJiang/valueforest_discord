@@ -46,6 +46,11 @@ class VFConfig:
                 authors_highlight_config[int(author_config['id'])] = author_config
                 pop_from_checklist(author_names_checklist, author)
             channel_config['author_highlight'] = authors_highlight_config
+            
+        def set_role_highlight_config(channel_config: list[str]) -> dict:
+            if not (roles:=channel_config.get('role_highlight', None)):
+                return None
+            channel_config['role_highlight'] = roles
         
         def set_channel_config(channel_config: list[str], channel_mapping: dict, channel_names_checklist: list[str]) -> dict:
             if self._test_mode['enabled']:
@@ -102,6 +107,7 @@ class VFConfig:
                     continue
                 set_author_config(c_config, author_mapping, author_names_checklist)
                 set_author_highlight_config(c_config, author_mapping, author_names_checklist)
+                set_role_highlight_config(c_config)
                 set_channel_config(c_config, channel_mapping, channel_names_checklist)
                 set_webhook_config(c_config, webhook_mapping, webhook_names_checklist)
                 this_channel_configs.append(c_config)
