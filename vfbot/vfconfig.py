@@ -34,6 +34,18 @@ class VFConfig:
                 authors_config[int(author_config['id'])] = author_config
                 pop_from_checklist(author_names_checklist, author)
             channel_config['author_filter'] = authors_config
+
+        def set_author_highlight_config(channel_config: list[str], author_mapping: dict, author_names_checklist: list[str]) -> dict:
+            if not (authors:=channel_config.get('author_highlight', None)):
+                return None
+            authors_highlight_config = {}
+            for author in authors:
+                if not (author_config := author_mapping.get(author, None)):
+                    logger.error(f"Author {author} not found in users list.")
+                    continue
+                authors_highlight_config[int(author_config['id'])] = author_config
+                pop_from_checklist(author_names_checklist, author)
+            channel_config['author_highlight'] = authors_highlight_config
         
         def set_channel_config(channel_config: list[str], channel_mapping: dict, channel_names_checklist: list[str]) -> dict:
             if self._test_mode['enabled']:
@@ -89,6 +101,7 @@ class VFConfig:
                 if self._test_mode['enabled'] and self._test_mode['flagged_only'] and not c_config.get('flag_test_mode', False):
                     continue
                 set_author_config(c_config, author_mapping, author_names_checklist)
+                set_author_highlight_config(c_config, author_mapping, author_names_checklist)
                 set_channel_config(c_config, channel_mapping, channel_names_checklist)
                 set_webhook_config(c_config, webhook_mapping, webhook_names_checklist)
                 this_channel_configs.append(c_config)

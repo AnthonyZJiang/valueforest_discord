@@ -36,6 +36,7 @@ class VFMessage:
         self.credit: str = credit
         self.embeds: list[dict] = embeds
         self.reference_msg: discord.Message = reference_msg
+        self.webhook_author_name: str = self.raw_msg_carrier.author.display_name
         
     @classmethod
     def from_dc_msg(cls, dc_msg: discord.Message, config: dict) -> Self:
@@ -87,10 +88,13 @@ class VFMessage:
         msg = cls(content.strip(), 
                   config, 
                   raw_msg_carrier = dc_msg, 
-                  author_name = get_author_name(author_name), 
+                  author_name = get_author_name(author_name),
                   credit = dc_msg.jump_url, 
                   embeds = get_embeds(dc_msg.embeds),
                   reference_msg = dc_msg.reference.resolved if dc_msg.reference else None)
+        
+        if config.get('author_highlight', None) and dc_msg.author.id in config['author_highlight']:
+                msg.webhook_author_name = "【🚨关注用户🚨】" + msg.webhook_author_name
         return msg
         
     @property
@@ -102,18 +106,21 @@ class VFMessage:
             else:
                 _content = f"【{self.author_name}】 {_content}"
         if self.reference_msg:
-            # remove emojis in <> and normal emojis in ::
-            referenced_content = re.sub(r'<\S+>|:\S+:', '', self.reference_msg.content).strip()
-            # remove @, url, and line breaks
-            referenced_content = re.sub(r'@|https?:|[\n\r]+', '', referenced_content)
-            # limit the length of referenced_content to 20 characters
-            if len(referenced_content) > CHAR_LIMIT:
-                referenced_content = referenced_content[:CHAR_LIMIT] + "..."
-            if referenced_content:
-                resolved_content = f"[{referenced_content}]({self.reference_msg.jump_url})"
-            else:
-                resolved_content = f"[Go to message]({self.reference_msg.jump_url})"
-            _content = f"-# Reply to: {resolved_content}\n" + _content
+            try:
+                # remove emojis in <> and normal emojis in ::
+                referenced_content = re.sub(r'<\S+>|:\S+:', '', self.reference_msg.content).strip()
+                # remove @, url, and line breaks
+                referenced_content = re.sub(r'@|https?:|[\n\r]+', '', referenced_content)
+                # limit the length of referenced_content to 20 characters
+                if len(referenced_content) > CHAR_LIMIT:
+                    referenced_content = referenced_content[:CHAR_LIMIT] + "..."
+                if referenced_content:
+                    resolved_content = f"[{referenced_content}]({self.reference_msg.jump_url})"
+                else:
+                    resolved_content = f"[Go to message]({self.reference_msg.jump_url})"
+                _content = f"-# Reply to: {resolved_content}\n" + _content
+            except AttributeError:
+                _content = f"-# Reply to a deleted message\n" + _content
         if self.show_credit:
             _content = f"{_content} [ߺ ʟɪɴᴋ ߺ]({self.credit})"
         if time_str := self.get_date_str():

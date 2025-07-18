@@ -66,7 +66,7 @@ class MessageReceiver(selfcord.Client):
             webhook = DiscordWebhook(url=webhook_config.url)
             webhook.content = message.content
             if isinstance(message.raw_msg_carrier, selfcord.Message) and webhook_config.use_dynamic_avatar_name:
-                webhook.username = message.raw_msg_carrier.author.display_name
+                webhook.username = message.webhook_author_name
                 webhook.avatar_url = message.raw_msg_carrier.author.display_avatar.url
             webhook.embeds = message.embeds
             res = webhook.execute()
