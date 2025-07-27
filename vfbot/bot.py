@@ -67,6 +67,9 @@ class Bot:
     def __init__(self):
         self.pull_since = None
         self.pull_until = None
+        self.pull_channels = None
+        self.pull_only = False
+        
         self.sender = None
         self.receiver = None
         self.keep_alive_agent = None
@@ -87,6 +90,12 @@ class Bot:
             if date:
                 logger.info("Forwarding history messages until %s", date)
                 self.pull_until = date
+        if 'pull_channels' in kwargs:
+            self.pull_channels = kwargs['pull_channels'].split(',')
+            logger.info("Pull history messages from channels: %s", self.pull_channels)
+        if 'pull_only' in kwargs:
+            self.pull_only = kwargs['pull_only']
+            logger.info("Pull history messages only.")
         
         self.discord_thread = Thread(target=self.start_discord)
         self.discord_thread.start()
@@ -159,8 +168,11 @@ class Bot:
         
         self.receiver.forward_history_since = self.pull_since
         self.receiver.forward_history_before = self.pull_until
+        self.receiver.forward_history_only = self.pull_only
+        self.receiver.forward_history_from_channels = self.pull_channels
         self.pull_since = None
         self.pull_until = None
+        self.pull_channels = None
         
         executor = ThreadPoolExecutor(max_workers=2)
         
@@ -170,9 +182,10 @@ class Bot:
         logger.info("> Commissioning discord bots...")
         try:
             # Wait for sender to be ready before scheduling keep-alive agent
-            while not self.sender.is_ready():
-                time.sleep(0.1)
-            asyncio.run_coroutine_threadsafe(self.keep_alive_agent.start(), self.sender.loop)
+            if not self.pull_only:
+                while not self.sender.is_ready():
+                    time.sleep(0.1)
+                asyncio.run_coroutine_threadsafe(self.keep_alive_agent.start(), self.sender.loop)
             
             sender_future.result()
             receiver_future.result()

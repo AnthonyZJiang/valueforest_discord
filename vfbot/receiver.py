@@ -20,8 +20,12 @@ class MessageReceiver(selfcord.Client):
         self.config = config
         self.channels = config.repost_settings
         self.sender = sender
+        
         self.forward_history_since = None
         self.forward_history_before = None
+        self.forward_history_only = False
+        self.forward_history_from_channels = None
+        
         self.last_message_time = time.time()
         self.handshake_config = None # type: dict[str, ]
         
@@ -32,6 +36,8 @@ class MessageReceiver(selfcord.Client):
             await self.forward_history_messages(after=self.forward_history_since, before=self.forward_history_before)
             
     async def on_message(self, message: selfcord.Message, is_forward: bool = False):
+        if self.forward_history_only and not is_forward:
+            return
         self.last_message_time = time.time()
         if self.handshake_config and await self.ack_handshake(message):
             return
@@ -96,9 +102,19 @@ class MessageReceiver(selfcord.Client):
         logger.info(f"Forwarded {count} messages from {from_channel_id}.")
         
     async def forward_history_messages(self, after: datetime, before: datetime = None, rate: int = 2):
-        for id in self.config.channel_list:
-            await self.forward_history_messages_by_channel(id, after, before, rate)
+        if self.forward_history_only:
+            for name in self.forward_history_from_channels:
+                id = self.config.config['channels'].get(name, None)
+                if not id:
+                    logger.error(f"Channel {name} not found in config.")
+                    continue
+                await self.forward_history_messages_by_channel(id, after, before, rate)
+        else:
+            for id in self.config.channel_list:
+                await self.forward_history_messages_by_channel(id, after, before, rate)
         logger.info(f"All history messages forwarded.")
+        if self.forward_history_only:
+            self.close()
 
     async def ack_handshake(self, message: selfcord.Message):
         if message.channel.id != self.handshake_config['channel_id'] or not message.content.startswith(self.handshake_config['message_tag']):
