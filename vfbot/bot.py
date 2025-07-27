@@ -66,6 +66,7 @@ def parse_date_arg(arg: str) -> datetime:
 class Bot:
     def __init__(self):
         self.pull_since = None
+        self.pull_until = None
         self.sender = None
         self.receiver = None
         self.keep_alive_agent = None
@@ -81,6 +82,11 @@ class Bot:
             if date:
                 logger.info("Forwarding history messages since %s", date)
                 self.pull_since = date
+        if 'pull_until' in kwargs:
+            date = parse_date_arg(kwargs['pull_until'])
+            if date:
+                logger.info("Forwarding history messages until %s", date)
+                self.pull_until = date
         
         self.discord_thread = Thread(target=self.start_discord)
         self.discord_thread.start()
@@ -152,7 +158,9 @@ class Bot:
         self.keep_alive_agent = KeepAliveAgent(sender=self.sender, receiver=self.receiver)
         
         self.receiver.forward_history_since = self.pull_since
+        self.receiver.forward_history_before = self.pull_until
         self.pull_since = None
+        self.pull_until = None
         
         executor = ThreadPoolExecutor(max_workers=2)
         
