@@ -73,6 +73,7 @@ class Bot:
         self.sender = None
         self.receiver = None
         self.keep_alive_agent = None
+        self.executor = None
         self.do_report_online = True
         logger.info("Bot version: %s", VERSION)
     
@@ -157,8 +158,10 @@ class Bot:
     
     async def close(self):
         await self.keep_alive_agent.close()
+        self.sender.loop.close()
         await self.receiver.close()
         await self.sender.close()
+        self.executor.shutdown(wait=True)
         
     def start_discord(self):
         logger.info("> Building discord bots...")
@@ -174,10 +177,10 @@ class Bot:
         self.pull_until = None
         self.pull_channels = None
         
-        executor = ThreadPoolExecutor(max_workers=2)
+        self.executor = ThreadPoolExecutor(max_workers=2)
         
-        sender_future = executor.submit(self.sender.run, self.config.bot_token, log_handler=stream_handler)
-        receiver_future = executor.submit(self.receiver.run, self.config.self_token, log_handler=stream_handler)
+        sender_future = self.executor.submit(self.sender.run, self.config.bot_token, log_handler=stream_handler)
+        receiver_future = self.executor.submit(self.receiver.run, self.config.self_token, log_handler=stream_handler)
         
         logger.info("> Commissioning discord bots...")
         try:
