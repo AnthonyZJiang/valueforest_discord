@@ -19,7 +19,7 @@ from .keepaliveagent import KeepAliveAgent
 dotenv.load_dotenv()
 
 VERSION: str = 'SMK-2.2.5'
-AUTO_RESUME_TIMEOUT = int(os.getenv('AUTO_RESUME_TIMEOUT', 5))
+AUTO_RESUME_TIMEOUT = int(os.getenv('AUTO_RESUME_TIMEOUT', 10))
 
 stream_handler = setup_logging(os.getenv('LOG_FILE'))
 logger = logging.getLogger(__name__)
@@ -80,6 +80,10 @@ class Bot:
         self.config = VFConfig('config.json')
         logger.info("Config loaded. %d channels to monitor.", len(self.config.channel_list))
         
+    @property
+    def do_report_status(self):
+        return not self.config._test_mode['enabled'] and not self.pull_only
+    
     def run(self, **kwargs):
         if 'pull_since' in kwargs:
             date = parse_date_arg(kwargs['pull_since'])
@@ -107,7 +111,7 @@ class Bot:
         def wait_for_discord():
             while True:
                 if self.keep_alive_agent and self.keep_alive_agent.bot_ready and self.keep_alive_agent.ready:
-                    if self.do_report_online:
+                    if self.do_report_online and self.do_report_status:
                         self.keep_alive_agent.report_online(r.random())
                         self.do_report_online = False
                     break
@@ -119,8 +123,9 @@ class Bot:
             while True:
                 if time.time() - resume_timer > AUTO_RESUME_TIMEOUT:
                     logger.warning("Auto-resume timeout, restarting...")
-                    self.keep_alive_agent.report_offline(r.random())
-                    self.do_report_online = True
+                    if self.do_report_status:
+                        self.keep_alive_agent.report_offline(r.random())
+                        self.do_report_online = True
                     self.restart_discord_thread()
                     logger.info("Waiting for discord bots to start...")
                     time.sleep(5)
@@ -150,18 +155,23 @@ class Bot:
                 logger_count = 1
             
     def restart_discord_thread(self):
-        asyncio.run_coroutine_threadsafe(self.close(), self.sender.loop)
+        self.close()
         self.discord_thread.join(timeout=1)
+        while self.discord_thread.is_alive():
+            logger.warning("Discord thread is still alive...")
+            time.sleep(1)
         self.discord_thread = Thread(target=self.start_discord)
         self.discord_thread.start()
         logger.info("Discord thread restart requested.")
     
-    async def close(self):
-        await self.keep_alive_agent.close()
-        self.sender.loop.close()
-        await self.receiver.close()
-        await self.sender.close()
-        self.executor.shutdown(wait=True)
+    def close(self):
+        asyncio.run_coroutine_threadsafe(self.keep_alive_agent.close(), self.sender.loop)
+        logger.info("Closing sender...")
+        asyncio.run_coroutine_threadsafe(self.sender.close(), self.sender.loop)
+        logger.info("Closing receiver...")
+        asyncio.run_coroutine_threadsafe(self.receiver.close(), self.receiver.loop)
+        self.receiver_future.cancel()
+        self.sender_future.cancel()
         
     def start_discord(self):
         logger.info("> Building discord bots...")
@@ -177,23 +187,25 @@ class Bot:
         self.pull_until = None
         self.pull_channels = None
         
-        self.executor = ThreadPoolExecutor(max_workers=2)
+        with ThreadPoolExecutor(max_workers=2) as executor:
         
-        sender_future = self.executor.submit(self.sender.run, self.config.bot_token, log_handler=stream_handler)
-        receiver_future = self.executor.submit(self.receiver.run, self.config.self_token, log_handler=stream_handler)
-        
-        logger.info("> Commissioning discord bots...")
-        try:
-            # Wait for sender to be ready before scheduling keep-alive agent
-            if not self.pull_only:
-                while not self.sender.is_ready():
-                    time.sleep(0.1)
-                asyncio.run_coroutine_threadsafe(self.keep_alive_agent.start(), self.sender.loop)
+            self.sender_future = executor.submit(self.sender.run, self.config.bot_token, log_handler=stream_handler)
+            self.receiver_future = executor.submit(self.receiver.run, self.config.self_token, log_handler=stream_handler)
             
-            sender_future.result()
-            receiver_future.result()
-        except KeyboardInterrupt:
-            logger.info("Ctrl+C again to shut down...")
-        except asyncio.CancelledError:
-            logger.error("Bot cancelled.")
-            pass
+            logger.info("> Commissioning discord bots...")
+            try:
+                # Wait for sender to be ready before scheduling keep-alive agent
+                if not self.pull_only:
+                    while not self.sender.is_ready():
+                        time.sleep(0.1)
+                    asyncio.run_coroutine_threadsafe(self.keep_alive_agent.start(), self.sender.loop)
+                
+                self.sender_future.result()
+                logger.info("Sender is closed.")
+                self.receiver_future.result()
+                logger.info("Receiver is closed.")
+            except KeyboardInterrupt:
+                logger.info("Ctrl+C again to shut down...")
+            except asyncio.CancelledError:
+                logger.error("Bot cancelled.")
+                pass

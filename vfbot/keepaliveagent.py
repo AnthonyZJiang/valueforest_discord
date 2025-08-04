@@ -62,19 +62,28 @@ class KeepAliveAgent:
         self.status_report_enabled = False
         self.handshake_enabled = False
         self.status_message = None
+        self.ready = False
         
-        self.status_report_task.cancel()
-        self.handshake_task.cancel()
+        tasks_to_cancel = []
+        if hasattr(self, 'status_report_task'):
+            tasks_to_cancel.append(self.status_report_task)
+        if hasattr(self, 'handshake_task'):
+            tasks_to_cancel.append(self.handshake_task)
         
-        try:
-            await asyncio.wait_for(self.status_report_task, timeout=5.0)
-        except (asyncio.CancelledError, asyncio.TimeoutError):
-            pass
+        for task in tasks_to_cancel:
+            if not task.done():
+                task.cancel()
         
-        try:
-            await asyncio.wait_for(self.handshake_task, timeout=5.0)
-        except (asyncio.CancelledError, asyncio.TimeoutError):
-            pass
+        if tasks_to_cancel:
+            try:
+                await asyncio.wait_for(
+                    asyncio.gather(*tasks_to_cancel, return_exceptions=True),
+                    timeout=5.0
+                )
+            except (asyncio.CancelledError, asyncio.TimeoutError):
+                pass
+        
+        logger.info(f"Keep alive agent #{self._id} closed.")
     
     async def update_status_message(self):
         if not self.status_report_enabled:
