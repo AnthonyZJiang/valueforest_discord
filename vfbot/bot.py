@@ -156,10 +156,9 @@ class Bot:
             
     def restart_discord_thread(self):
         self.close()
-        self.discord_thread.join(timeout=1)
-        while self.discord_thread.is_alive():
+        self.discord_thread.join(timeout=5)
+        if self.discord_thread.is_alive():
             logger.warning("Discord thread is still alive...")
-            time.sleep(1)
         self.discord_thread = Thread(target=self.start_discord)
         self.discord_thread.start()
         logger.info("Discord thread restart requested.")
