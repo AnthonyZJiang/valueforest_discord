@@ -8,6 +8,7 @@ import asyncio
 import random
 import dotenv
 import os
+import argparse
 
 from .utils import setup_logging
 from .sender import MessageSender
@@ -18,11 +19,84 @@ from .keepaliveagent import KeepAliveAgent
 
 dotenv.load_dotenv()
 
-VERSION: str = 'SMK-2.3.0'
+VERSION: str = 'SMK-2.3.1'
 AUTO_RESUME_TIMEOUT = int(os.getenv('AUTO_RESUME_TIMEOUT', 10))
 
 stream_handler = setup_logging(os.getenv('LOG_FILE'))
 logger = logging.getLogger(__name__)
+
+def print_help():
+    """Print comprehensive help information for all available arguments"""
+    help_text = f"""
+Value Forest Discord Bot v{VERSION} - Command Line Arguments
+
+USAGE:
+    python run_bot.py [ARGUMENT=VALUE] [ARGUMENT=VALUE] ...
+    python run_bot.py help                    # Show this help message
+    python run_bot.py --help                  # Show this help message
+    python run_bot.py -h                      # Show this help message
+
+AVAILABLE ARGUMENTS:
+
+    pull_since=TIME
+        Start forwarding messages from this time onwards.
+        
+        TIME formats:
+        - Relative time: -XdYhZmWs (e.g., -1d2h3m4s for 1 day, 2 hours, 3 minutes, 4 seconds ago)
+        - Absolute time: YYYY-MM-DD HH:MM:SS (e.g., 2024-01-15 14:30:00)
+        
+        Examples:
+        - pull_since=-1d          # Messages from 1 day ago
+        - pull_since=-2h30m       # Messages from 2 hours 30 minutes ago
+        - pull_since=2024-01-15 14:30:00  # Messages from specific date/time
+
+    pull_until=TIME
+        Stop forwarding messages at this time.
+        
+        TIME formats: Same as pull_since
+        Examples:
+        - pull_until=-1h          # Messages until 1 hour ago
+        - pull_until=2024-01-16 00:00:00  # Messages until specific date/time
+
+    pull_channels=CHANNEL_LIST
+        Comma-separated list of channel IDs to pull messages from.
+        
+        Examples:
+        - pull_channels=moonmarket_ace_education
+        - pull_channels=moonmarket_ace_education,moonmarket_ace_alerts
+
+    pull_only=BOOLEAN
+        If true, only pull historical messages without starting the live bot.
+        
+        Examples:
+        - pull_only=1
+
+EXAMPLES:
+
+1. Pull messages from the last 24 hours:
+   python run_bot.py pull_since=-1d
+
+2. Pull messages from specific channels in the last 2 hours:
+   python run_bot.py pull_since=-2h pull_channels=123456789,987654321
+
+3. Pull messages between specific dates:
+   python run_bot.py pull_since=2024-01-15 00:00:00 pull_until=2024-01-16 00:00:00
+
+4. Pull-only mode (no live bot):
+   python run_bot.py pull_since=-1d pull_only=true
+
+5. Pull from specific channels in the last 30 minutes:
+   python run_bot.py pull_since=-30m pull_channels=123456789
+
+NOTES:
+- All times are in UTC
+- Relative time format: -XdYhZmWs where X=days, Y=hours, Z=minutes, W=seconds
+- Channel IDs can be found by right-clicking on a Discord channel and selecting "Copy ID"
+- If no arguments are provided, the bot runs normally in live mode
+- Configuration is loaded from 'config.json' in the same directory
+- The bot automatically monitors all channels specified in the configuration file
+"""
+    print(help_text)
 
 def parse_date_arg(arg: str) -> datetime:
     """
@@ -84,27 +158,67 @@ class Bot:
     def do_report_status(self):
         return not self.config._test_mode['enabled'] and not self.pull_only
     
+    def show_help(self):
+        """Display help information for the bot"""
+        print_help()
+    
     def run(self, **kwargs):
+        # Check for help argument first
+        if 'help' in kwargs or 'h' in kwargs:
+            print_help()
+            return
+        
+        # Validate and process arguments
+        self._validate_arguments(kwargs)
+        
         if 'pull_since' in kwargs:
             date = parse_date_arg(kwargs['pull_since'])
             if date:
                 logger.info("Forwarding history messages since %s", date)
                 self.pull_since = date
+            else:
+                logger.error("Invalid pull_since date format: %s", kwargs['pull_since'])
+                logger.info("Use 'help' for date format examples")
+                return
+        
         if 'pull_until' in kwargs:
             date = parse_date_arg(kwargs['pull_until'])
             if date:
                 logger.info("Forwarding history messages until %s", date)
                 self.pull_until = date
+            else:
+                logger.error("Invalid pull_until date format: %s", kwargs['pull_until'])
+                logger.info("Use 'help' for date format examples")
+                return
+        
         if 'pull_channels' in kwargs:
             self.pull_channels = kwargs['pull_channels'].split(',')
             logger.info("Pull history messages from channels: %s", self.pull_channels)
+        
         if 'pull_only' in kwargs:
-            self.pull_only = kwargs['pull_only']
-            logger.info("Pull history messages only.")
+            self.pull_only = kwargs['pull_only'].lower() in ['true', '1', 'yes', 'on']
+            logger.info("Pull history messages only: %s", self.pull_only)
         
         self.discord_thread = Thread(target=self.start_discord)
         self.discord_thread.start()
         self.start_monitor()
+    
+    def _validate_arguments(self, kwargs):
+        """Validate command line arguments and provide helpful error messages"""
+        valid_args = {'pull_since', 'pull_until', 'pull_channels', 'pull_only', 'help', 'h'}
+        invalid_args = set(kwargs.keys()) - valid_args
+        
+        if invalid_args:
+            logger.warning("Unknown arguments: %s", ', '.join(invalid_args))
+            logger.info("Use 'help' to see all available arguments")
+        
+        # Validate pull_only is a boolean if provided
+        if 'pull_only' in kwargs:
+            value = kwargs['pull_only'].lower()
+            if value not in ['true', 'false', '1', '0', 'yes', 'no', 'on', 'off']:
+                logger.warning("pull_only should be a boolean value (true/false, 1/0, yes/no, on/off)")
+                logger.info("Defaulting to false")
+                kwargs['pull_only'] = 'false'
             
     def start_monitor(self):
         r = random.Random(1)

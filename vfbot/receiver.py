@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class MessageReceiver(selfcord.Client):
     id = 0
     def __init__(self, config: VFConfig, sender: MessageSender):
-        super().__init__()
+        super().__init__(max_messages=100)
         self._id = MessageReceiver.id
         MessageReceiver.id += 1
         self.config = config
