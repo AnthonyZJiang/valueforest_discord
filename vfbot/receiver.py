@@ -102,7 +102,7 @@ class MessageReceiver(selfcord.Client):
         logger.info(f"Forwarded {count} messages from {from_channel_id}.")
         
     async def forward_history_messages(self, after: datetime, before: datetime = None, rate: int = 2):
-        if self.forward_history_only:
+        if self.forward_history_from_channels:
             for name in self.forward_history_from_channels:
                 id = self.config.config['channels'].get(name, None)
                 if not id:

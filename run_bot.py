@@ -6,7 +6,7 @@ def parse_arguments():
     args = {}
     
     # Check for help argument first
-    if len(sys.argv) == 1 or 'help' in sys.argv or '-h' in sys.argv or '--help' in sys.argv:
+    if 'help' in sys.argv or '-h' in sys.argv or '--help' in sys.argv:
         from vfbot.bot import print_help
         print_help()
         sys.exit(0)
