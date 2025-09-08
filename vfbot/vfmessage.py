@@ -138,8 +138,11 @@ class VFMessage:
         if not style:
             return self._content
         content = self._content
-        if 'unbold' in style:
-            content = content.replace("**", "")
+        for key, value in style.items():
+            if key == 'unbold':
+                content = content.replace("**", "")
+            elif key == 'prefix':
+                content = f"{value} {content}"
         return content
     
     def get_date_str(self) -> str:
