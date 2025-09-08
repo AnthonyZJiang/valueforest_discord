@@ -105,7 +105,7 @@ class VFMessage:
         
     @property
     def content(self) -> str:
-        _content = self._content
+        _content = self.stylize()
         if self.show_author_name:
             if self.is_emoji(self.author_name):
                 _content = f"{self.author_name} {_content}"
@@ -132,6 +132,15 @@ class VFMessage:
         if time_str := self.get_date_str():
             _content = f"{time_str}\n{_content}"
         return _content.strip()
+    
+    def stylize(self) -> str:
+        style = self.config.get('style', None)
+        if not style:
+            return self._content
+        content = self._content
+        if 'unbold' in style:
+            content = content.replace("**", "")
+        return content
     
     def get_date_str(self) -> str:
         if not isinstance(self.raw_msg_carrier, selfcord.Message):
