@@ -143,6 +143,9 @@ class VFMessage:
                 content = content.replace("**", "")
             elif key == 'prefix':
                 content = f"{value} {content}"
+            elif key == 'remove_mentions':
+                content = content.replace("@here","")
+                content = content.replace("@everyone","")
         return content
     
     def get_date_str(self) -> str:
