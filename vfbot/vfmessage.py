@@ -3,8 +3,11 @@ import selfcord
 import re
 from datetime import datetime, timedelta, timezone
 from typing_extensions import Self
-from .utils import ASHLEY_ID, ANGELA_ID
 
+
+ASHLEY_ID = 1313007325224898580
+ANGELA_ID = 1313008328229785640
+ENRICH_ID = 185020620310839296
 CHAR_LIMIT = 100
 
 class WebhookConfig:
@@ -62,6 +65,7 @@ class VFMessage:
             return embeds_list
             
         content = dc_msg.content
+        content = content.replace("@c2.ini", "")
 
         if dc_msg.author.id == ASHLEY_ID: # ashley
             content = content.replace("@c2.ini", "")
@@ -78,6 +82,10 @@ class VFMessage:
             content = re.sub(r':8375_siren_blue:|<a:8375_siren_blue:\d+>', ":new:", content)
             content = re.sub(r':RedAlert:|<a:RedAlert:\d+>', ":red_sqare:", content)
             content = re.sub(r':greensiren:|<a:greensiren:\d+>', ":green_square:", content)
+            
+        elif dc_msg.author.id == ENRICH_ID: # entrich
+            content = content.replace("@c2.ini", "")
+            content = content.replace("!alert", "")
             
         if dc_msg.attachments:
             content += " " + " ".join([f.url for f in dc_msg.attachments])

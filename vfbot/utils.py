@@ -3,10 +3,6 @@ from logging.handlers import TimedRotatingFileHandler
 from discord.utils import _ColourFormatter
 import os
 
-ASHLEY_ID = 1313007325224898580
-ANGELA_ID = 1313008328229785640
-TESTER_ID = 185020620310839296
-
 def setup_logging(log_file: str = None) -> logging.Handler:
     level = logging.DEBUG
     

@@ -88,9 +88,9 @@ class VFConfig:
                 channel_config['webhook'].append(webhook_id)
                 pop_from_checklist(webhook_names_checklist, webhook_name)
         
-        channel_mapping = self.config['channels'] # type: dict[str, str]
-        author_mapping = self.config['users'] # type: dict[str, dict]
-        webhook_mapping = self.config.get('webhooks', {}) # type: dict[str, str]
+        channel_mapping: dict[str, str] = self.config['channels']
+        author_mapping: dict[str, dict] = self.config['users']
+        webhook_mapping: dict[str, str] = self.config.get('webhooks', {})
         channel_names_checklist = list(channel_mapping.keys())
         author_names_checklist = list(author_mapping.keys())
         webhook_names_checklist = list(webhook_mapping.keys())
