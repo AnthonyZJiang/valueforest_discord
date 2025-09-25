@@ -25,7 +25,8 @@ def parse_arguments():
 if __name__ == "__main__":
     try:
         args = parse_arguments()
-        bot = Bot()
+        debug = args.get('debug', False)
+        bot = Bot(debug=debug)
         bot.run(**args)
     except KeyboardInterrupt:
         print("\nBot stopped by user.")

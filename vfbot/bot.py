@@ -138,7 +138,7 @@ def parse_date_arg(arg: str) -> datetime:
 
 
 class Bot:
-    def __init__(self):
+    def __init__(self, debug: bool = False):
         self.pull_since = None
         self.pull_until = None
         self.pull_channels = None
@@ -151,7 +151,7 @@ class Bot:
         self.do_report_online = True
         logger.info("Bot version: %s", VERSION)
     
-        self.config = VFConfig('config.json')
+        self.config = VFConfig('config.json', debug=debug)
         logger.info("Config loaded. %d channels to monitor.", len(self.config.channel_list))
         
     @property
@@ -205,7 +205,7 @@ class Bot:
     
     def _validate_arguments(self, kwargs):
         """Validate command line arguments and provide helpful error messages"""
-        valid_args = {'pull_since', 'pull_until', 'pull_channels', 'pull_only', 'help', 'h'}
+        valid_args = {'pull_since', 'pull_until', 'pull_channels', 'pull_only', 'help', 'h', 'debug'}
         invalid_args = set(kwargs.keys()) - valid_args
         
         if invalid_args:

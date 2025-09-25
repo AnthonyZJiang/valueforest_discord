@@ -7,7 +7,7 @@ from typing_extensions import Self
 
 ASHLEY_ID = 1313007325224898580
 ANGELA_ID = 1313008328229785640
-ENRICH_ID = 185020620310839296
+ENRICH_ID = 1313010231885955112
 CHAR_LIMIT = 100
 
 class WebhookConfig:
@@ -65,7 +65,6 @@ class VFMessage:
             return embeds_list
             
         content = dc_msg.content
-        content = content.replace("@c2.ini", "")
 
         if dc_msg.author.id == ASHLEY_ID: # ashley
             content = content.replace("@c2.ini", "")
@@ -86,6 +85,11 @@ class VFMessage:
         elif dc_msg.author.id == ENRICH_ID: # entrich
             content = content.replace("@c2.ini", "")
             content = content.replace("!alert", "")
+            
+        elif dc_msg.author.id == 185020620310839296:
+            content = content.replace("@c2.ini", "")
+            # remove !alert, +alert, $alert...
+            content = re.sub(r'[!+$@#]+alert', '', content)
             
         if dc_msg.attachments:
             content += " " + " ".join([f.url for f in dc_msg.attachments])
@@ -135,6 +139,12 @@ class VFMessage:
                 _content = f"-# Reply to: {resolved_content}\n" + _content
             except AttributeError:
                 _content = f"-# Reply to a deleted message\n" + _content
+        if self.raw_msg_carrier.message_snapshots:
+            snapshot = self.raw_msg_carrier.message_snapshots[0]
+            snapshot_content = '\n> '.join(snapshot.content.strip().split("\n"))
+            snapshot_content += " " + " ".join([f.url for f in snapshot.attachments])
+            created_at = int(snapshot.created_at.timestamp())
+            _content = f"> -# ╭ *Forwarded message* • <t:{created_at}>\n> {snapshot_content}\n{_content}"
         if self.show_credit:
             _content = f"{_content} [ߺ ʟɪɴᴋ ߺ]({self.credit})"
         if time_str := self.get_date_str():

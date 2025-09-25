@@ -11,11 +11,13 @@ def pop_from_checklist(checklist: list[str], item: str) -> None:
 
 
 class VFConfig:
-    def __init__(self, config_path: str):
+    def __init__(self, config_path: str, debug: bool = False):
         with open(config_path, 'r') as f:
             self.config = json.load(f)
-        
+            
         self._test_mode = self.config.get('test_mode', {"enabled": False})
+        if debug:
+            self._test_mode['enabled'] = True
         self.self_token = self.config['self_token']
         self.bot_token = self.config['bot_token']
         self.repost_settings = {}
