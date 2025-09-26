@@ -8,6 +8,7 @@ from typing_extensions import Self
 ASHLEY_ID = 1313007325224898580
 ANGELA_ID = 1313008328229785640
 ENRICH_ID = 1313010231885955112
+ANTHONY_ID = 185020620310839296
 CHAR_LIMIT = 100
 
 class WebhookConfig:
@@ -84,11 +85,6 @@ class VFMessage:
             
         elif dc_msg.author.id == ENRICH_ID: # entrich
             content = content.replace("@c2.ini", "")
-            content = content.replace("!alert", "")
-            
-        elif dc_msg.author.id == 185020620310839296:
-            content = content.replace("@c2.ini", "")
-            # remove !alert, +alert, $alert...
             content = re.sub(r'[!+$@#]+alert', '', content)
             
         if dc_msg.attachments:
