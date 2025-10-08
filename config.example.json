@@ -1,4 +1,5 @@
 {
+    "config_version": "20251008-1000",
     "bot_token": "YOUR_BOT_TOKEN",
     "self_token": "YOUR_SELF_TOKEN",
     "test_mode": {

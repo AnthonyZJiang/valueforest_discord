@@ -175,7 +175,9 @@ class Bot:
         logger.info("Bot version: %s", VERSION)
     
         self.config = VFConfig('config.json', debug=debug)
-        logger.info("Config loaded. %d channels to monitor.", len(self.config.channel_list))
+        logger.info("Config loaded. Version: %s.\n%d channels to monitor.", 
+                    self.config.config['config_version'], 
+                    len(self.config.channel_list))
         
     @property
     def do_report_status(self):
