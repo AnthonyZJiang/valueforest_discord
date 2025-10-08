@@ -19,7 +19,7 @@ from .keepaliveagent import KeepAliveAgent
 
 dotenv.load_dotenv()
 
-VERSION: str = 'SMK-2.3.1'
+VERSION: str = 'SMK-2.4.0'
 AUTO_RESUME_TIMEOUT = int(os.getenv('AUTO_RESUME_TIMEOUT', 10))
 
 CONFIG_FILE_HOST = os.getenv('CONFIG_FILE_HOST')
