@@ -22,8 +22,21 @@ dotenv.load_dotenv()
 VERSION: str = 'SMK-2.3.1'
 AUTO_RESUME_TIMEOUT = int(os.getenv('AUTO_RESUME_TIMEOUT', 10))
 
+CONFIG_FILE_HOST = os.getenv('CONFIG_FILE_HOST')
+
 stream_handler = setup_logging(os.getenv('LOG_FILE'))
 logger = logging.getLogger(__name__)
+
+
+if CONFIG_FILE_HOST:
+    if CONFIG_FILE_HOST == 'gdrive':
+        GDRIVE_CONFIG_UID = os.getenv('GDRIVE_CONFIG_UID')
+        if not GDRIVE_CONFIG_UID:
+            logger.error("GDRIVE_CONFIG_UID is not set")
+        else:
+            import urllib.request
+            urllib.request.urlretrieve(url=f"https://drive.google.com/uc?id={GDRIVE_CONFIG_UID}", filename='config.json')
+
 
 def print_help():
     """Print comprehensive help information for all available arguments"""
