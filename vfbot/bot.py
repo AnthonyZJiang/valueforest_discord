@@ -29,13 +29,23 @@ logger = logging.getLogger(__name__)
 
 
 if CONFIG_FILE_HOST:
+    temp_file = 'config.json.temp'
+    success = False
     if CONFIG_FILE_HOST == 'gdrive':
         GDRIVE_CONFIG_UID = os.getenv('GDRIVE_CONFIG_UID')
         if not GDRIVE_CONFIG_UID:
             logger.error("GDRIVE_CONFIG_UID is not set")
         else:
             import urllib.request
-            urllib.request.urlretrieve(url=f"https://drive.google.com/uc?id={GDRIVE_CONFIG_UID}", filename='config.json')
+            logger.info(f"Downloading config file from Google Drive...")
+            file, _ = urllib.request.urlretrieve(url=f"https://drive.google.com/uc?id={GDRIVE_CONFIG_UID}", filename=temp_file)
+            if os.path.exists(file) and os.path.getsize(file) > 0:
+                os.rename(file, 'config.json')
+                success = True
+    if success:
+        logger.info(f"Config file downloaded from host '{CONFIG_FILE_HOST}'")
+    else:
+        logger.error(f"Failed to download config file from host '{CONFIG_FILE_HOST}'")
 
 
 def print_help():
