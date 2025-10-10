@@ -9,6 +9,8 @@ from .sender import MessageSender
 from .vfmessage import VFMessage
 from .vfconfig import VFConfig
 
+from .llm.gpt import LLMAnalyser
+
 logger = logging.getLogger(__name__)
 
 class MessageReceiver(selfcord.Client):
@@ -27,7 +29,9 @@ class MessageReceiver(selfcord.Client):
         self.forward_history_from_channels = None
         
         self.last_message_time = time.time()
-        self.handshake_config = None # type: dict[str, ]
+        self.handshake_config = None
+        
+        self.llm_analyser = LLMAnalyser(config.llm_webhook_url)
         
     async def on_ready(self):
         logger.info(f'Receiver #{self._id} logged on as {self.user}')
@@ -40,6 +44,9 @@ class MessageReceiver(selfcord.Client):
             return
         self.last_message_time = time.time()
         if self.handshake_config and await self.ack_handshake(message):
+            return
+        if message.channel.id == self.config.llm_channel:
+            self.llm_analyser.analyse(message)
             return
         if message.channel.id not in self.config.channel_list:
             return
