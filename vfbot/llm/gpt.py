@@ -18,8 +18,11 @@ class LLMAnalyser:
 
     def analyse(self, message: discord.Message):
         logger.info(f"Analysing message {message.id} from {message.author.display_name} in {message.channel.name}.")
+        cleaned_content = self._cleanup_message(message.content)
+        if not cleaned_content:
+            return
         msg = {
-            "content": self._cleanup_message(message.content),
+            "content": cleaned_content,
             "message_url": message.jump_url,
             "timestamp": int(message.created_at.timestamp())
         }
