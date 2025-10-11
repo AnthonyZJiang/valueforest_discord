@@ -47,7 +47,6 @@ class MessageReceiver(selfcord.Client):
             return
         if message.channel.id == self.config.llm_channel:
             self.llm_analyser.analyse(message)
-            return
         if message.channel.id not in self.config.channel_list:
             return
         for c in self.channels[message.channel.id]:
