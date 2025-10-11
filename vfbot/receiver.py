@@ -45,8 +45,6 @@ class MessageReceiver(selfcord.Client):
         self.last_message_time = time.time()
         if self.handshake_config and await self.ack_handshake(message):
             return
-        if message.channel.id == self.config.llm_channel:
-            self.llm_analyser.analyse(message)
         if message.channel.id not in self.config.channel_list:
             return
         for c in self.channels[message.channel.id]:
@@ -72,7 +70,10 @@ class MessageReceiver(selfcord.Client):
             else:
                 self.sender.forward_message(msg)
             
-            await asyncio.sleep(2)
+            if message.channel.id == self.config.llm_channel:
+                self.llm_analyser.analyse(message)
+                return
+            # await asyncio.sleep(2)
         
     def send_webhook_message(self, message: VFMessage):
         for webhook_config in message.webhook_configs:
