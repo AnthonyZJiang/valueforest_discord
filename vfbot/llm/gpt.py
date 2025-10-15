@@ -199,9 +199,6 @@ class LLMAnalyser:
         embeds.append(embed)
         return embeds
         
-    def _actions_to_str(self, actions: list[dict]):
-        return f"*Actions:*\n{'\n---\n'.join([f'{action['ticker']}:\n{action['action']}{f" @ {action['price']}" if action['price'] else ""}\n{f"Stop loss: {action['stop_loss']}" if action['stop_loss'] else ""}' for action in actions])}"
-    
     def shutdown(self, wait: bool = True):
         """
         Shutdown the thread pool. Call this when the analyser is no longer needed.
