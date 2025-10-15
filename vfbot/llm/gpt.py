@@ -194,7 +194,7 @@ class LLMAnalyser:
             })
         embed['fields'].append({
             "name": "Time reference",
-            "value": f"Posted at <t:{int(dc_msg.created_at.timestamp())}> ({dc_msg.created_at.second}s)\nDelay since post: {datetime.now(timezone.utc).timestamp() - dc_msg.created_at.timestamp():.2f}s"
+            "value": f"Posted at <t:{int(dc_msg.created_at.timestamp())}> ({dc_msg.created_at.second}s)\nDelay since post: {(datetime.now(timezone.utc).second - dc_msg.created_at.second):.2f}s"
             })
         embeds.append(embed)
         return embeds
