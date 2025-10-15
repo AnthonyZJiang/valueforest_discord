@@ -6,6 +6,8 @@ from concurrent.futures import ThreadPoolExecutor
 import threading
 import discord
 import logging
+import time
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -15,8 +17,10 @@ class LLMAnalyser:
         self.webhook_url = webhook_url
         self.executor = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="LLMAnalyser")
         self._lock = threading.Lock()
+        self.time_start = time.perf_counter()
 
     def analyse(self, message: discord.Message):
+        self.time_start = time.perf_counter()
         logger.info(f"Analysing message {message.id} from {message.author.display_name} in {message.channel.name}.")
         cleaned_content = self._cleanup_message(message.content)
         if not cleaned_content:
@@ -24,7 +28,8 @@ class LLMAnalyser:
         msg = {
             "content": cleaned_content,
             "message_url": message.jump_url,
-            "timestamp": int(message.created_at.timestamp())
+            "timestamp": message.created_at.timestamp(),
+            "second": message.created_at.second
         }
         future = self.executor.submit(self._analyse_sync, msg)
         return future
@@ -99,7 +104,7 @@ class LLMAnalyser:
         try:
             webhook = DiscordWebhook(url=self.webhook_url)
             error_message = f"\nError:{message['error']}" if message['error'] else ""
-            webhook.content = f":new:  {message['response']}{error_message}\n------\n-# ORIGINAL MESSAGE @ <t:{original_message['timestamp']}> {original_message['message_url']}\n{original_message['content']}"
+            webhook.content = f":new:  {message['response']}{error_message}\nDelay since alert: {datetime.now(timezone.utc).timestamp() - original_message['timestamp']:.3f} s\nProcessing time: {time.perf_counter() - self.time_start:.3f} s\n------\n-# ORIGINAL MESSAGE @ <t:{int(original_message['timestamp'])}>({original_message['second']}s) {original_message['message_url']}\n{original_message['content']}"
             webhook.username = "LLM Analyser"
             webhook.execute()
             print(f"Webhook message sent.")
