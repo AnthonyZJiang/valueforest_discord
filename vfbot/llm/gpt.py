@@ -12,9 +12,9 @@ from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 
 class LLMAnalyser:
-    def __init__(self, webhook_url: str, max_workers: int = 3):
+    def __init__(self, webhook_url: str | list[str], max_workers: int = 3):
         self.openai_client = OpenAI()
-        self.webhook_url = webhook_url
+        self.webhook_urls = webhook_url if isinstance(webhook_url, list) else [webhook_url]
         self.executor = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="LLMAnalyser")
         self._lock = threading.Lock()
         self.time_start = time.perf_counter()
@@ -100,12 +100,14 @@ class LLMAnalyser:
 
     def _send_message(self, message: dict, response: dict):
         try:
-            webhook = DiscordWebhook(url=self.webhook_url)
             error_message = f"\nError:{response['error']}" if response['error'] else ""
-            webhook.content = error_message
-            webhook.embeds = self._build_webhook_embeds(message, response['response'])
-            webhook.username = "LLM Analyser"
-            webhook.execute()
+            embeds = self._build_webhook_embeds(message, response['response'])
+            for webhook_url in self.webhook_urls:
+                webhook = DiscordWebhook(url=webhook_url)
+                webhook.content = error_message
+                webhook.embeds = embeds
+                webhook.username = "LLM Analyser"
+                webhook.execute()
             print(f"Webhook message sent.")
         except Exception as e:
             # Log error but don't let it crash the analysis
