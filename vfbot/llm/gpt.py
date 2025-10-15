@@ -27,9 +27,7 @@ class LLMAnalyser:
             return
         msg = {
             "content": cleaned_content,
-            "message_url": message.jump_url,
-            "timestamp": message.created_at.timestamp(),
-            "second": message.created_at.second
+            "original_message": message
         }
         future = self.executor.submit(self._analyse_sync, msg)
         return future
@@ -100,17 +98,107 @@ class LLMAnalyser:
             'response': response.output_text
         }
 
-    def _send_message(self, original_message: dict, message: dict):
+    def _send_message(self, message: dict, response: dict):
         try:
             webhook = DiscordWebhook(url=self.webhook_url)
-            error_message = f"\nError:{message['error']}" if message['error'] else ""
-            webhook.content = f":new:  {message['response']}{error_message}\nDelay since alert: {datetime.now(timezone.utc).timestamp() - original_message['timestamp']:.3f} s\nProcessing time: {time.perf_counter() - self.time_start:.3f} s\n------\n-# ORIGINAL MESSAGE @ <t:{int(original_message['timestamp'])}>({original_message['second']}s) {original_message['message_url']}\n{original_message['content']}"
+            error_message = f"\nError:{response['error']}" if response['error'] else ""
+            webhook.content = error_message
+            webhook.embeds = self._build_webhook_embeds(message, response['response'])
             webhook.username = "LLM Analyser"
             webhook.execute()
             print(f"Webhook message sent.")
         except Exception as e:
             # Log error but don't let it crash the analysis
             logger.error(f"Failed to send webhook message: {e}", exc_info=True)
+            
+    def _get_actions_from_response(self, response: str):
+        #$<股票代码>,BTO,O=<开仓价>,S=<止损价>
+        #$<股票代码,TP
+        #$<股票代码,SL
+        #$<股票代码,MS,S=<止损价>
+        #ign
+        actions = []
+        parts = response.split(";")
+        for part in parts:
+            if part == 'ign':
+                continue
+            chunk = part.split(",")
+            if len(chunk[0]) < 2:
+                # ticker must be at least 2 characters with $
+                continue 
+            if chunk[1] == 'BTO':
+                actions.append({
+                    'ticker': chunk[0],
+                    'action': 'Buy to open'
+                })
+            elif chunk[1] == 'TP':
+                actions.append({
+                    'ticker': chunk[0],
+                    'action': 'Sell (take a profit)'
+                })
+            elif chunk[1] == 'SL':
+                actions.append({
+                    'ticker': chunk[0],
+                    'action': 'Sell (take a loss)'
+                })
+            elif chunk[1] == 'MS':
+                actions.append({
+                    'ticker': chunk[0],
+                    'action': 'Move stop loss'
+                })
+            for c in chunk[2:]:
+                if c.startswith('O='):
+                    actions[-1]['price'] = c[2:]
+                elif c.startswith('S='):
+                    actions[-1]['stop_loss'] = c[2:]
+        return actions
+    
+    def _build_webhook_embeds(self, message: dict, response: str):
+        embeds = []
+        dc_msg = message['original_message']
+        actions = self._get_actions_from_response(response)
+        embed = {
+            "description": "",
+            "fields": [
+            ],
+            "author": {
+                "name": dc_msg.author.display_name,
+                "icon_url": dc_msg.author.avatar.url
+            },
+            "title": "New alert",
+            "url": dc_msg.jump_url
+        }
+        if actions:
+            _prev_ticker = None
+            for action in actions:
+                _ticker = action['ticker']
+                action_str = f"- *Action:* {action['action']}"
+                price_str = f"\n- *Open price:* ${action['price']}" if action.get('price') else ""
+                stop_loss_str = f"\n- *Stop loss:* ${action['stop_loss']}" if action.get('stop_loss') else ""
+                if _ticker != _prev_ticker:
+                    embed['fields'].append({
+                        "name": f"{_ticker}",
+                        "value": f"{action_str}{price_str}{stop_loss_str}",
+                        "inline": False
+                    })
+                    _prev_ticker = _ticker
+                else:
+                    embed['fields'][-1]['value'] += f"\n{action_str}{price_str}{stop_loss_str}"
+        else:
+            embed["description"] = "No actions."
+        embed['fields'].append({
+            "name": "Original post",
+            "value": message['content']
+            })
+        embed['fields'].append({
+            "name": "Time reference",
+            "value": f"Posted at <t:{int(dc_msg.created_at.timestamp())}> ({dc_msg.created_at.second}s)\nDelay since post: {datetime.now(timezone.utc).timestamp() - dc_msg.created_at.timestamp():.2f}s"
+            })
+        embeds.append(embed)
+        return embeds
+        
+    def _actions_to_str(self, actions: list[dict]):
+        return f"*Actions:*\n{'\n---\n'.join([f'{action['ticker']}:\n{action['action']}{f" @ {action['price']}" if action['price'] else ""}\n{f"Stop loss: {action['stop_loss']}" if action['stop_loss'] else ""}' for action in actions])}"
     
     def shutdown(self, wait: bool = True):
         """
