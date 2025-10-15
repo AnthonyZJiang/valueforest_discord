@@ -31,7 +31,7 @@ class MessageReceiver(selfcord.Client):
         self.last_message_time = time.time()
         self.handshake_config = None
         
-        self.llm_analyser = LLMAnalyser(config.llm_webhook_url)
+        self.llm_analyser = LLMAnalyser(config.llm_config)
         
     async def on_ready(self):
         logger.info(f'Receiver #{self._id} logged on as {self.user}')

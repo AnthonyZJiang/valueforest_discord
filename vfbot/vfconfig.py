@@ -24,8 +24,8 @@ class VFConfig:
         self.construct_repost_settings()
         self.channel_list = list(self.repost_settings.keys())
         
-        self.llm_webhook_url = self.config.get('llm_webhook_url', None)
-        self.llm_channel = self.config.get('llm_channel', None)
+        self.llm_config = self.config.get('llm_config', None)
+        self.llm_channel = [int(i) for i in self.llm_config.keys()] if self.llm_config else []
         
     def construct_repost_settings(self):
         def set_author_config(channel_config: list[str], author_mapping: dict, author_names_checklist: list[str]) -> dict:
