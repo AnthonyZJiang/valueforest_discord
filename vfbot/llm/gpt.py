@@ -59,11 +59,11 @@ class LLMAnalyser:
         Synchronous analysis method that runs in the thread pool.
         """
         try:
-            # response = self._get_response_from_llm(message['content'])
-            response = {
-                'error': None,
-                'response': '$TEST,BTO,O=100,S=90;$TEST2,TP;$TEST3,SL,S=80;$TEST,MS,S=70;ign'
-            }
+            response = self._get_response_from_llm(message['content'])
+            # response = {
+            #     'error': None,
+            #     'response': '$TEST,BTO,O=100,S=90;$TEST2,TP;$TEST3,SL,S=80;$TEST,MS,S=70;ign'
+            # }
         except Exception as e:
             logger.error(f"Failed to analyse message: {e}", exc_info=True)
             response = {
