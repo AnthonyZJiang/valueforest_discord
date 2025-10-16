@@ -49,9 +49,9 @@ class MessageReceiver(selfcord.Client):
             return
         
             
-        if message.channel.id in self.config.llm_channel:
-            self.llm_analyser.analyse(message)
-            return
+        # if message.channel.id in self.config.llm_channel:
+        #     self.llm_analyser.analyse(message)
+        #     # return
         for c in self.channels[message.channel.id]:
             if is_forward and c.get('ignore_forward_history', False):
                 continue
