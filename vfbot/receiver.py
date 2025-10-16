@@ -70,9 +70,8 @@ class MessageReceiver(selfcord.Client):
             else:
                 self.sender.forward_message(msg)
             
-            if message.channel.id == self.config.llm_channel:
+            if message.channel.id in self.config.llm_channel:
                 self.llm_analyser.analyse(message)
-                return
             # await asyncio.sleep(2)
         
     def send_webhook_message(self, message: VFMessage):

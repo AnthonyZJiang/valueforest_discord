@@ -152,6 +152,7 @@ class ActionServer:
             webhook = self._get_webhook(config['webhook'])
             webhook.embeds = embeds
             webhook.content = mention_str
+            webhook.username = "ChatGPT"
             webhook.execute()
         
     def _build_webhook_embeds(self, action_chain: ActionChain):
