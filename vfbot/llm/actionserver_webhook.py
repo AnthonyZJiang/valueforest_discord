@@ -7,6 +7,10 @@ from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
+EMOJI_BUY = " :green_circle: "
+EMOJI_SELL = " :red_circle: "
+EMOJI_MS = " :yellow_circle: "
+
 class ActionChain:
     def __init__(self, command: str, dc_msg: DiscordMessage):
         self.dc_msg = dc_msg
@@ -17,9 +21,8 @@ class ActionChain:
         
 
 class Action:
-    ACTION_BTO = "Buy"
-    ACTION_TP = "Sell"
-    ACTION_SL = "Sell"
+    ACTION_BUY = "Buy"
+    ACTION_SELL = "Sell"
     ACTION_MS = "Set SL"
     
     def __init__(self, command: str):
@@ -39,12 +42,6 @@ class Action:
         self._parse_action()
     
     def _parse_action(self):
-        #$<股票代码>,BTO,O=<开仓价>,S=<止损价>
-        #$<股票代码,TP
-        #$<股票代码,SL
-        #$<股票代码,MS,S=<止损价>
-        #ign
-        
         if len(self.parts) < 2:
             self.error_message = "At least 2 parts are required"
             return
@@ -53,15 +50,15 @@ class Action:
         if not self.parts[0].startswith("$") and len(self.parts[0]) < 2:
             self.error_message = f"Ticker must be at least 2 characters with $"
             return
-        self.ticker = self.parts[0][1:]
+        if not self.parts[0].startswith("$n_a"):
+            # if ticker is $n_a, leave self.ticker as None
+            self.ticker = self.parts[0][1:]
         
         # ACTION PART 2: action
-        if self.parts[1] == "BTO":
-            self.action = self.ACTION_BTO
-        elif self.parts[1] == "TP":
-            self.action = self.ACTION_TP
-        elif self.parts[1] == "SL":
-            self.action = self.ACTION_SL
+        if self.parts[1] == "B":
+            self.action = self.ACTION_BUY
+        elif self.parts[1] == "S":
+            self.action = self.ACTION_SELL
         elif self.parts[1] == "MS":
             self.action = self.ACTION_MS
         else:
@@ -78,12 +75,12 @@ class Action:
         
         # ACTION PART 3 and beyond: price and stop loss
         for part in self.parts[2:]:
-            if part.startswith("O="):
+            if part.startswith("P="):
                 self.price = part[2:]
-            elif part.startswith("S="):
+            elif part.startswith("SL="):
                 self.stop_loss = part[2:]
             else:
-                self.error_message = "Invalid action part, O or S is expected"
+                self.error_message = "Invalid action part, P or SL is expected"
                 return
         
     def to_str(self):
@@ -145,13 +142,13 @@ class ActionServer:
                 continue
             mentions = config.get('mention', [])
             if mentions and not action_chain.is_ign:
-                mention_str = " @" + " @".join(mentions)
+                mention_str = " @" + " @".join(mentions) + " "
             else:
                 mention_str = ""
                 
             webhook = self._get_webhook(config['webhook'])
             webhook.embeds = embeds
-            webhook.content = mention_str
+            webhook.content = mention_str + "from " + action_chain.dc_msg.author.display_name + " in " + action_chain.dc_msg.channel.name
             webhook.username = "ChatGPT"
             webhook.execute()
         
@@ -173,11 +170,21 @@ class ActionServer:
             for action in action_chain.actions:
                 if action.is_ign:
                     continue
-                titles.append(f"{action.ticker}: {action.action}")
+                action_emoji = ""
+                if action.action == Action.ACTION_BUY:
+                    action_emoji = EMOJI_BUY
+                elif action.action == Action.ACTION_SELL:
+                    action_emoji = EMOJI_SELL
+                elif action.action == Action.ACTION_MS:
+                    action_emoji = EMOJI_MS
+                    
+                titles.append(f"{action_emoji}{(action.ticker + ': ' ) if action.ticker else ''}{action.action.lower()}")
                 _ticker = action.ticker
                 action_str = f"- *Action:* {action.action}"
                 price_str = f"\n- *Open price:* ${action.price}" if action.price else ""
                 stop_loss_str = f"\n- *Stop loss:* ${action.stop_loss}" if action.stop_loss else ""
+                if not _ticker:
+                    _ticker = ""
                 if _ticker != _prev_ticker:
                     embed['fields'].append({
                         "name": f"{_ticker}",
@@ -186,7 +193,14 @@ class ActionServer:
                     })
                     _prev_ticker = _ticker
                 else:
-                    embed['fields'][-1]['value'] += f"\n{action_str}{price_str}{stop_loss_str}"
+                    if embed['fields']:
+                        embed['fields'][-1]['value'] += f"\n{action_str}{price_str}{stop_loss_str}"
+                    else:
+                        embed['fields'].append({
+                            "name": f"{_ticker}",
+                            "value": f"{action_str}{price_str}{stop_loss_str}",
+                            "inline": False
+                        })
         else:
             embed["description"] = "No actions."
         embed['fields'].append({
@@ -197,6 +211,6 @@ class ActionServer:
             "name": "Time reference",
             "value": f"Posted at <t:{int(action_chain.dc_msg.created_at.timestamp())}> ({action_chain.dc_msg.created_at.second}s)\nDelay since post: {(datetime.now(timezone.utc).timestamp() - action_chain.dc_msg.created_at.timestamp()):.2f}s"
             })
-        embed['title'] = " | ".join(titles) if titles else "No actions"
+        embed['title'] = ("" + " || ".join(titles)) if titles else "No actions"
         embeds.append(embed)
         return embeds

@@ -160,6 +160,9 @@ class VFMessage:
             elif key == 'remove_mentions':
                 content = content.replace("@here","")
                 content = content.replace("@everyone","")
+                content = content.replace("@unknown-role","")
+                content = re.sub(r'<@&\d+>','',content)
+                
         return content
     
     def get_date_str(self) -> str:

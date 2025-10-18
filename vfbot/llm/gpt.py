@@ -1,13 +1,11 @@
 from openai import OpenAI
-from discord_webhook import DiscordWebhook
-import json
 import re
 from concurrent.futures import ThreadPoolExecutor
 import threading
-from selfcord import Message as DiscordMessage
 import logging
 import time
 from .actionserver_webhook import ActionServer
+from ..vfmessage import VFMessage
 
 logger = logging.getLogger(__name__)
 
@@ -41,15 +39,15 @@ class LLMAnalyser:
         self._lock = threading.Lock()
         self.time_start = time.perf_counter()
 
-    def analyse(self, message: DiscordMessage):
+    def analyse(self, message: VFMessage):
         self.time_start = time.perf_counter()
-        logger.info(f"Analysing message {message.id} from {message.author.display_name} in {message.channel.name}.")
+        logger.info(f"Analysing message from {message.author_name} in {message.raw_msg_carrier.channel.name}.")
         cleaned_content = self._cleanup_message(message.content)
         if not cleaned_content:
             return
         msg = {
             "content": cleaned_content,
-            "dc_msg": message
+            "dc_msg": message.raw_msg_carrier
         }
         future = self.executor.submit(self._execute, msg)
         return future
@@ -75,10 +73,12 @@ class LLMAnalyser:
     def _cleanup_message(self, message: str):
         # remove timestamp <t:1231245> <t:1231245:R>, emoji <a:emoji_132.abc:321> <:emoji:321>, remove mentions <@!12345> <@3214512> <@&12345> <#32134>
         message = re.sub(r'<[#@:ta][&!]?[^>]+R?>', '', message).strip()
-        # remove @everyone, @here, @unknown-role etc.
-        message = re.sub(r'@(everyone|here|unknown-role)', '', message)
+        # remove @everyone, @here, @unknown-role, <@role_id>, etc.
+        message = re.sub(r'@(everyone|here|unknown-role)|<@&\d+>', '', message)
         # remove links
         message = re.sub(r'https?://[^\s]+', '', message)
+        # remove contents starting with "-# " until the next "\n"
+        message = re.sub(r'(^-# :small_)[^\n]*\n+', '', message)
         return message.strip()
 
     def _get_response_from_llm(self, message: str):
@@ -90,7 +90,7 @@ class LLMAnalyser:
                 "content": [
                     {
                     "type": "input_text",
-                    "text": "你是资深股票交易员。你订阅了推特博主的股票推荐。该博主定期发推文分享他的交易思路和交易操作。你需要首先等待用户提供推文，然后做以下几个步：\n\n1. 仔细阅读该推文。\n2. 如果推文内容是他的交易操作，则进入步骤3。否则直接跳过其他步骤并回复\"ign\"\n3. 提取股表代码，分析内容是否为开仓（进入步骤4），止盈（进入步骤5），止损（进入步骤6）或者调整/设置止损（进入步骤7）。如果有多个步骤，则按先后顺序依次处理，回复之间用\";\"隔开\n4. 开仓：分析是否提到开仓价或止损价，并按以下格式回复\"$<股票代码>,BTO,O=<开仓价>,S=<止损价>\"。若未提及具体止损或开仓价，则无需回复相关内容。\n5. 止盈：按以下格式回复\"$<股票代码,TP\"。\n6. 止损：按以下格式回复\"$<股票代码>,SL\"。\n7. 调整或设置止损：提取止损价，并按以下格式回复\"$<股票代码,MS,S=<止损价>\"。注意若未提及止损价，比如只是说Vwap, ema之类的，则回复ign。\n\n## 举例\n推文：Took CADA 2.3\n回复内容：$CADA,BTO,O=2.3\n\n推文：GLTO bouncing off EMA\n回复内容：ign\n\n推文：Took MRM 2.50: MRM < $3 - Series A Round Valuation stop under 2.10\n回复内容：$MRM,BTO,O=2.50,S=2.1\n\n推文：BJDX going for downtrend break at this point stop loss under 3.80\n回复内容：$BJDX,MS,S=3.8\n\n推文：ABCD took some profit at 3.2 and holding runners. Stop under 3 for the rest.\n回复内容：$ABCD,TP;$ABCD,MS,S=3\n\n## 注意：\n禁止回复任何分析、描述，只可按上面提到的格式回复。"
+                    "text": "你是资深股票交易员。你订阅了推特博主的股票推荐。该博主定期发推文分享他的交易思路和交易操作。你需要首先等待用户提供推文，然后做以下几个步：\n\n1. 仔细阅读该推文。\n2. 如果推文内容是他的交易操作，则进入步骤3。否则直接跳过其他步骤并回复\"ign\"\n3. 提取股表代码，分析内容是否为买入（进入步骤4），卖出（进入步骤5），或者调整/设置止损（进入步骤6）。如果有多个步骤，则按先后顺序依次处理，回复之间用\";\"隔开\n4. 开仓或买入：关键词如buy, open, add, take等。分析是否提到买入价或止损价，并按以下格式回复\"$<股票代码>,B,P=<买入价>,SL=<止损价>\"。若未提及具体止损或买入价，则无需回复相关内容。\n5. 卖出：关键词如sell, trim, cut, close, out, take profit等。按以下格式回复\"$<股票代码>,S\"。\n6. 调整或设置止损：提取止损价，并按以下格式回复\"$<股票代码,MS,SL=<止损价>\"。注意若未提及止损价，比如只是说Vwap, ema之类的，则回复ign。\n\n## 注意：\n1. 推文若没有股票代码，则<股票代码>用n_a代替，如\"all out\"，回复\"$n_a,S\"\n2. 禁止回复任何分析、描述，只可按上面提到的格式回复。\n\n## 举例\n推文：Took CADA 2.3\n回复内容：$CADA,B,P=2.3\n\n推文：GLTO bouncing off EMA\n回复内容：ign\n\n推文：Took MRM 2.50: MRM < $3 - Series A Round Valuation stop under 2.10\n回复内容：$MRM,B,P=2.50,SL=2.1\n\n推文：All out\n回复内容：$n_a,S\n\n推文：ABCD took some profit at 3.2 and holding runners. Stop under 3 for the rest.\n回复内容：$ABCD,S;$ABCD,MS,SL=3"
                     }
                 ]
                 },
@@ -114,7 +114,7 @@ class LLMAnalyser:
             temperature=1,
             max_output_tokens=2048,
             top_p=1,
-            store=False,
+            store=True,
             include=["web_search_call.action.sources"]
         )
         return {
