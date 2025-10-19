@@ -42,7 +42,7 @@ class LLMAnalyser:
     def analyse(self, message: VFMessage):
         self.time_start = time.perf_counter()
         logger.info(f"Analysing message from {message.author_name} in {message.raw_msg_carrier.channel.name}.")
-        cleaned_content = self._cleanup_message(message.content)
+        cleaned_content = self._cleanup_message(message.cleaned_content)
         if not cleaned_content:
             return
         msg = {

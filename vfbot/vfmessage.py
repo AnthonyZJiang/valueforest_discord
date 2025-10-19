@@ -110,6 +110,10 @@ class VFMessage:
         if not highlight_set and config.get('author_highlight', None) and dc_msg.author.id in config['author_highlight']:
             msg.webhook_author_name = "【🚨关注用户🚨】" + msg.webhook_author_name
         return msg
+    
+    @property
+    def cleaned_content(self) -> str:
+        return self._content
         
     @property
     def content(self) -> str:
