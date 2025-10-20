@@ -30,8 +30,10 @@ class MessageReceiver(selfcord.Client):
         
         self.last_message_time = time.time()
         self.handshake_config = None
-        
-        self.llm_analyser = LLMAnalyser(config.llm_config)
+        if config.llm_config:
+            self.llm_analyser = LLMAnalyser(config.llm_config)
+        else:
+            self.llm_analyser = Non is
         
     async def on_ready(self):
         logger.info(f'Receiver #{self._id} logged on as {self.user}')
@@ -75,7 +77,7 @@ class MessageReceiver(selfcord.Client):
             else:
                 self.sender.forward_message(msg)
             
-            if message.channel.id in self.config.llm_channel:
+            if self.llm_analyser and message.channel.id in self.config.llm_channel:
                 self.llm_analyser.analyse(msg)
         
     def send_webhook_message(self, message: VFMessage):
