@@ -33,7 +33,7 @@ class MessageReceiver(selfcord.Client):
         if config.llm_config:
             self.llm_analyser = LLMAnalyser(config.llm_config)
         else:
-            self.llm_analyser = Non is
+            self.llm_analyser = None
         
     async def on_ready(self):
         logger.info(f'Receiver #{self._id} logged on as {self.user}')
