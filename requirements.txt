@@ -1,4 +1,6 @@
 requests
-discord.py
+discord.py>=2.6.4
 git+https://github.com/dolfies/discord.py-self@renamed#egg=selfcord.py
-discord-webhook
+discord-webhook>=1.4.1
+dotenv>=0.9.9
+openai>=2.8.1
