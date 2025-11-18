@@ -1,11 +1,11 @@
 import logging
-import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import selfcord
 from discord_webhook import DiscordWebhook
 import time
 
-from .sender import MessageSender
+from .discord_bot.handshake import HandshakeResponder
+
 from .vfmessage import VFMessage
 from .vfconfig import VFConfig
 
@@ -13,15 +13,15 @@ from .llm.gpt import LLMAnalyser
 
 logger = logging.getLogger(__name__)
 
-class MessageReceiver(selfcord.Client):
+class Selfbot(selfcord.Client):
     id = 0
-    def __init__(self, config: VFConfig, sender: MessageSender):
+
+    def __init__(self, config: VFConfig):
         super().__init__(max_messages=100)
-        self._id = MessageReceiver.id
-        MessageReceiver.id += 1
+        self._id = Selfbot.id
+        Selfbot.id += 1
         self.config = config
         self.channels = config.repost_settings
-        self.sender = sender
         
         self.forward_history_since = None
         self.forward_history_before = None
@@ -29,14 +29,16 @@ class MessageReceiver(selfcord.Client):
         self.forward_history_from_channels = None
         
         self.last_message_time = time.time()
-        self.handshake_config = None
+        
         if config.llm_config:
             self.llm_analyser = LLMAnalyser(config.llm_config)
         else:
             self.llm_analyser = None
+
+        self.handshake_responder = HandshakeResponder(client=self)
         
     async def on_ready(self):
-        logger.info(f'Receiver #{self._id} logged on as {self.user}')
+        logger.info(f'Selfbot #{self._id} logged on as {self.user}')
         if self.forward_history_since:
             logger.info(f"Forwarding messages since {self.forward_history_since}")
             await self.forward_history_messages(after=self.forward_history_since, before=self.forward_history_before)
@@ -45,15 +47,13 @@ class MessageReceiver(selfcord.Client):
         if self.forward_history_only and not is_forward:
             return
         self.last_message_time = time.time()
-        if self.handshake_config and await self.ack_handshake(message):
+        if message.author.id == self.user.id:
+            return
+        if await self.handshake_responder.respond(message):
             return
         if message.channel.id not in self.config.channel_list:
             return
-        
-            
-        # if message.channel.id in self.config.llm_channel:
-        #     self.llm_analyser.analyse(message)
-        #     # return
+
         for c in self.channels[message.channel.id]:
             if is_forward and c.get('ignore_forward_history', False):
                 continue
@@ -72,10 +72,7 @@ class MessageReceiver(selfcord.Client):
                 
             logger.debug(f"(Receiver #{self._id}) On message: Received message {message.id} from {message.author.display_name} in {message.channel.name}.")
             msg = VFMessage.from_dc_msg(message, c)
-            if msg.is_webhook:
-                self.send_webhook_message(msg)
-            else:
-                self.sender.forward_message(msg)
+            self.send_webhook_message(msg)
             
             if self.llm_analyser and message.channel.id in self.config.llm_channel:
                 self.llm_analyser.analyse(msg)
@@ -127,16 +124,3 @@ class MessageReceiver(selfcord.Client):
         logger.info(f"All history messages forwarded.")
         if self.forward_history_only:
             self.close()
-
-    async def ack_handshake(self, message: selfcord.Message):
-        if message.channel.id != self.handshake_config['channel_id'] or not message.content.startswith(self.handshake_config['message_tag']):
-            return False
-        logger.debug("Handshake received.")
-        if self.handshake_config.get('handshake_ack_webhook'):
-            webhook = DiscordWebhook(url=self.handshake_config['handshake_ack_webhook'])
-            webhook.content = f"Handshake received from {message.author.display_name}."
-            webhook.username = message.author.display_name + " (receiver)"
-            webhook.avatar_url = message.author.display_avatar.url
-            webhook.execute()
-        self.handshake_config = None
-        return True

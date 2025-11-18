@@ -8,7 +8,6 @@ import asyncio
 import random
 import dotenv
 import os
-import argparse
 
 from .utils import setup_logging
 from .sender import MessageSender

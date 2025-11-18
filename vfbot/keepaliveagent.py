@@ -30,7 +30,7 @@ class KeepAliveAgent:
         self.status_report_enabled = False
         self.handshake_enabled = False
         
-        self.config = None # type: dict[str, ]
+        self.config: dict[str, ] = None
         self.status_message = None
         self.handshake_channel_id = None
         self.handshake_message_prefix = None
