@@ -1,25 +1,26 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+import asyncio
+
 import selfcord
 from discord_webhook import DiscordWebhook
-import time
 
-from .discord_bot.handshake import HandshakeResponder
+from .mod.keepalive.handshake import HandshakeResponder
+from .mod.llm.gpt import LLMAnalyser
+from .mod.vfmessage import VFMessage
 
-from .vfmessage import VFMessage
-from .vfconfig import VFConfig
+if TYPE_CHECKING:
+    from .mod.vfconfig import VFConfig
 
-from .llm.gpt import LLMAnalyser
 
 logger = logging.getLogger(__name__)
 
 class Selfbot(selfcord.Client):
-    id = 0
 
     def __init__(self, config: VFConfig):
         super().__init__(max_messages=100)
-        self._id = Selfbot.id
-        Selfbot.id += 1
         self.config = config
         self.channels = config.repost_settings
         
@@ -27,33 +28,42 @@ class Selfbot(selfcord.Client):
         self.forward_history_before = None
         self.forward_history_only = False
         self.forward_history_from_channels = None
-        
-        self.last_message_time = time.time()
+        self.handshake_responder = None
         
         if config.llm_config:
             self.llm_analyser = LLMAnalyser(config.llm_config)
         else:
             self.llm_analyser = None
-
-        self.handshake_responder = HandshakeResponder(client=self)
         
     async def on_ready(self):
-        logger.info(f'Selfbot #{self._id} logged on as {self.user}')
+        logger.info(f'Selfbot ready, logged on as {self.user}{" , forward history only" if self.forward_history_only else ""}')
+        print("Selfbot ready")
+        self.handshake_responder = HandshakeResponder(client=self)
         if self.forward_history_since:
+            if isinstance(self.forward_history_since, str):
+                self.forward_history_since = datetime.fromisoformat(self.forward_history_since)
+            if isinstance(self.forward_history_before, str):
+                self.forward_history_before = datetime.fromisoformat(self.forward_history_before)
             logger.info(f"Forwarding messages since {self.forward_history_since}")
             await self.forward_history_messages(after=self.forward_history_since, before=self.forward_history_before)
-            
+        else:
+            import asyncio
+            timeout = 15
+            await asyncio.sleep(timeout)
+            logger.debug("--- Selfbot shutdown ---")
+            await self.close()
+        
     async def on_message(self, message: selfcord.Message, is_forward: bool = False):
+        if not self.handshake_responder:
+            return
         if self.forward_history_only and not is_forward:
             return
-        self.last_message_time = time.time()
-        if message.author.id == self.user.id:
-            return
-        if await self.handshake_responder.respond(message):
+        if not self.forward_history_only and self.handshake_responder.is_valid_handshake_message(message):
+            self.handshake_responder.respond(message)
             return
         if message.channel.id not in self.config.channel_list:
             return
-
+        return
         for c in self.channels[message.channel.id]:
             if is_forward and c.get('ignore_forward_history', False):
                 continue
@@ -70,7 +80,7 @@ class Selfbot(selfcord.Client):
                             continue
                 c['author'] = c['author_filter'][message.author.id]
                 
-            logger.debug(f"(Receiver #{self._id}) On message: Received message {message.id} from {message.author.display_name} in {message.channel.name}.")
+            logger.debug(f"(Receiver On message: Received message {message.id} from {message.author.display_name} in {message.channel.name}.")
             msg = VFMessage.from_dc_msg(message, c)
             self.send_webhook_message(msg)
             
@@ -86,7 +96,7 @@ class Selfbot(selfcord.Client):
                 webhook.avatar_url = message.raw_msg_carrier.author.display_avatar.url
             webhook.embeds = message.embeds
             res = webhook.execute()
-            logger.debug(f"(Receiver #{self._id}) Sent webhook message. Status code: {res.status_code}.")
+            logger.debug(f"(Receiver Sent webhook message. Status code: {res.status_code}.")
     
     async def forward_history_messages_by_channel(self, from_channel_id: int, after: datetime, before: datetime = None, rate: int = 2):
         logger.info(f"Forwarding history messages from {from_channel_id} after {after}.")
@@ -123,4 +133,5 @@ class Selfbot(selfcord.Client):
                 await self.forward_history_messages_by_channel(id, after, before, rate)
         logger.info(f"All history messages forwarded.")
         if self.forward_history_only:
-            self.close()
+            await self.close()
+            print("Selfbot pull only completed.")

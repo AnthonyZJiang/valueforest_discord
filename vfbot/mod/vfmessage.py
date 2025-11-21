@@ -1,9 +1,13 @@
-import discord
-import selfcord
+from __future__ import annotations
+from typing import TYPE_CHECKING
 import re
 from datetime import datetime, timedelta, timezone
-from typing_extensions import Self
 
+import selfcord
+
+if TYPE_CHECKING:
+    import discord
+    from typing_extensions import Self
 
 ASHLEY_ID = 1313007325224898580
 ANGELA_ID = 1313008328229785640

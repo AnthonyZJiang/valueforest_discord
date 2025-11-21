@@ -1,9 +1,14 @@
-from discord_webhook import DiscordWebhook
+from __future__ import annotations
+from typing import TYPE_CHECKING
 import queue
 import logging
 import threading
-from selfcord import Message as DiscordMessage
 from datetime import datetime, timezone
+
+from discord_webhook import DiscordWebhook
+
+if TYPE_CHECKING:
+    from selfcord import Message as DiscordMessage
 
 logger = logging.getLogger(__name__)
 

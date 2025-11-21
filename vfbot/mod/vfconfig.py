@@ -1,5 +1,7 @@
 import json
 import logging
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -10,21 +12,41 @@ def pop_from_checklist(checklist: list[str], item: str) -> None:
         pass
 
 
+class KeepAliveConfig:
+    def __init__(self, config: dict):
+        self.status_message_channel_id = config.get("status_message_channel_id", None)
+        self.status_message_id = config.get("status_message_id", None)
+        self.down_time_require_pull_only_seconds = config.get("down_time_require_pull_only_seconds", 15)
+        
+        _config_handshake = config.get("handshake", {})
+        self.handshake_name = _config_handshake.get("name", None)
+        self.handshake_channel_id = _config_handshake.get("channel_id", None)
+        self.handshake_interval = _config_handshake.get("interval", 30)
+        self.handshake_timeout = _config_handshake.get("timeout", 65)
+        self.handshake_response_webhook = _config_handshake.get("response_webhook", None)
+        
 class VFConfig:
-    def __init__(self, config_path: str, debug: bool = False):
+    
+    def __init__(self, config_path: str, debug: bool = False, keepalive_only = False):
+        self.config_path = config_path
         with open(config_path, 'r') as f:
-            self.config = json.load(f)
+            self._config = json.load(f)
             
-        self._test_mode = self.config.get('test_mode', {"enabled": False})
+        self._test_mode = self._config.get('test_mode', {"enabled": False})
         if debug:
             self._test_mode['enabled'] = True
-        self.self_token = self.config['self_token']
-        self.bot_token = self.config['bot_token']
+        self.self_token = self._config['self_token']
+        self.bot_token = self._config['bot_token']
+        self.keepalive = KeepAliveConfig(self._config.get("keepalive", {}))
+        
         self.repost_settings = {}
+        
+        if keepalive_only:
+            return
         self.construct_repost_settings()
         self.channel_list = list(self.repost_settings.keys())
         
-        self.llm_config = self.config.get('llm_config', None)
+        self.llm_config = self._config.get('llm_config', None)
         self.llm_channel = [int(i) for i in self.llm_config.keys()] if self.llm_config else []
         
     def construct_repost_settings(self):
@@ -93,14 +115,14 @@ class VFConfig:
                 channel_config['webhook'].append(webhook_id)
                 pop_from_checklist(webhook_names_checklist, webhook_name)
         
-        channel_mapping: dict[str, str] = self.config['channels']
-        author_mapping: dict[str, dict] = self.config['users']
-        webhook_mapping: dict[str, str] = self.config.get('webhooks', {})
-        channel_names_checklist = list(channel_mapping.keys())
-        author_names_checklist = list(author_mapping.keys())
-        webhook_names_checklist = list(webhook_mapping.keys())
+        channel_mapping: dict[str, str] = self._config['channels']
+        author_mapping: dict[str, dict] = self._config['users']
+        webhook_mapping: dict[str, str] = self._config.get('webhooks', {})
+        channel_names_checklist = list[str](channel_mapping.keys())
+        author_names_checklist = list[str](author_mapping.keys())
+        webhook_names_checklist = list[str](webhook_mapping.keys())
         
-        for k, channel_configs in self.config['repost_settings'].items():
+        for k, channel_configs in self._config['repost_settings'].items():
             if not (id := channel_mapping.get(k, None)):
                 logger.error(f"Channel {k} not found in channels list, ignored")
                 continue
@@ -130,7 +152,7 @@ class VFConfig:
             logger.warning(f"The following authors are not used: {author_names_checklist}")
         if len(webhook_names_checklist) > 0:
             logger.warning(f"The following webhooks are not used: {webhook_names_checklist}")
-
+            
     def get(self, key, default=None):
         return self.repost_settings.get(key, default)
     
@@ -142,3 +164,13 @@ class VFConfig:
     
     def items(self):
         return self.repost_settings.items()
+    
+    def update(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+            self._config[key] = value
+        self.save()
+        
+    def save(self):
+        with open(self.config_path, 'w') as f:
+            json.dump(self._config, f, indent=4)

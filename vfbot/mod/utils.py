@@ -1,7 +1,8 @@
 import logging
+import os
+
 from logging.handlers import TimedRotatingFileHandler
 from discord.utils import _ColourFormatter
-import os
 
 def setup_logging(log_file: str = None) -> logging.Handler:
     level = logging.DEBUG

@@ -1,9 +1,12 @@
-from openai import OpenAI
+from __future__ import annotations
+from typing import TYPE_CHECKING
 import re
 from concurrent.futures import ThreadPoolExecutor
 import threading
 import logging
 import time
+
+from openai import OpenAI
 
 
 CHATGPT_PROMPT_ID = "pmpt_68e8333a6adc8193985f9321e7f67b5b0a798ea7eb9aacb5"
@@ -11,7 +14,9 @@ CHATGPT_PROMPT_VERSION = "10"
 
 if __name__ != "__main__":
     from .actionserver_webhook import ActionServer
-    from ..vfmessage import VFMessage
+    
+    if TYPE_CHECKING:
+        from ..vfmessage import VFMessage
 
     logger = logging.getLogger(__name__)
 
