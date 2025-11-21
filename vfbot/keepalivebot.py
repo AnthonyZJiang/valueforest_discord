@@ -24,6 +24,10 @@ class KeepAliveBot(discord.Client):
         self._selfbot_monitor_task = None
         self.keepalive = KeepAlive(client=self)
         
+    def stop(self) -> None:
+        self.keepalive.stop()
+        self.close()
+        
     def get_cached_channel(self, channel_id: int) -> discord.TextChannel:
         if channel_id not in self._cached_channels:
             self._cached_channels[channel_id] = self.get_channel(channel_id)

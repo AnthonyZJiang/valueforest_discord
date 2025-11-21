@@ -79,6 +79,9 @@ class ActionLayer:
         self._bot_ready_string = "Selfbot ready"
         self._timeout = SELFBOT_READY_TIMEOUT
         
+    def __del__(self):
+        self.kill_bot()
+        
     @property
     def selfbot_start_timeout(self) -> bool:
         if self.selfbot_ready:

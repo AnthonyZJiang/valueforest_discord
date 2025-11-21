@@ -22,9 +22,15 @@ class KeepAlive:
         self._pull_only_action_layer = PullOnlyActionLayer(client=self._client)
         
         self._action_layer.start_bot()
+        self._stop_requested = False
+        
+    def stop(self) -> None:
+        self._action_layer.kill_bot()
+        self._pull_only_action_layer.kill_bot()
+        self._stop_requested = True
 
     async def run(self) -> None:
-        while not self._client.is_closed():
+        while not self._client.is_closed() or self._stop_requested:
             try:
                 await self._spin_once()
             except Exception as e:

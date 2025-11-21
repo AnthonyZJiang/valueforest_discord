@@ -35,4 +35,10 @@ if CONFIG_FILE_HOST:
 
 config = VFConfig('config.json', keepalive_only=True)
 bot = KeepAliveBot(config)
-bot.run(token=config.bot_token, log_handler=stream_handler)
+try:
+    bot.run(token=config.bot_token, log_handler=stream_handler)
+except KeyboardInterrupt:
+    logger.info("Bot stopped by user.")
+    bot.stop()
+except Exception as e:
+    logger.error(f"Error starting bot: {e}", exc_info=True)
