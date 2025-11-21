@@ -38,4 +38,4 @@ def setup_logging(log_file: str = None) -> logging.Handler:
     logger.addHandler(file_handler_info)
     logger.addHandler(file_handler_debug)
     
-    return stream_handler
+    return stream_handler, library

@@ -10,8 +10,8 @@ dotenv.load_dotenv()
 AUTO_RESUME_TIMEOUT = int(os.getenv('AUTO_RESUME_TIMEOUT', 10))
 CONFIG_FILE_HOST = os.getenv('CONFIG_FILE_HOST')
 
-stream_handler = setup_logging(os.getenv('LOG_FILE'))
-logger = logging.getLogger(__name__)
+stream_handler, library = setup_logging(os.getenv('LOG_FILE'))
+logger = logging.getLogger(library)
 
 
 if CONFIG_FILE_HOST:
@@ -32,7 +32,10 @@ if CONFIG_FILE_HOST:
         logger.info(f"Config file downloaded from host '{CONFIG_FILE_HOST}'")
     else:
         logger.error(f"Failed to download config file from host '{CONFIG_FILE_HOST}'")
+else:
+    logger.warning("No config file host provided")
 
+logger.info(f"Bot version {VERSION}...")
 config = VFConfig('config.json', keepalive_only=True)
 bot = KeepAliveBot(config)
 try:
