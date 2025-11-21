@@ -9,10 +9,12 @@ from discord_webhook import DiscordWebhook
 if TYPE_CHECKING:
     from ...keepalivebot import KeepAliveBot
     from ...selfbot import Selfbot
+    
+    
+logger = logging.getLogger(__name__)
 
 
 class HandshakeInitiator:
-    logger = logging.getLogger(__name__)
 
     def __init__(self, client: KeepAliveBot):
         self._client = client
@@ -47,20 +49,19 @@ class HandshakeInitiator:
                 return False
         parts = message.content.split("TS ")
         if len(parts) != 2:
-            self.logger.error(f'Invalid handshake message: {message.content}')
+            logger.error(f'Invalid handshake message: {message.content}')
             return False
         handshake_timestamp = int(parts[1].strip())
         if handshake_timestamp != self._ts:
-            self.logger.error(f'Handshake timestamp mismatch: {handshake_timestamp} != {self._ts}')
+            logger.error(f'Handshake timestamp mismatch: {handshake_timestamp} != {self._ts}')
             return False
-        self.logger.debug(f"Handshake response received from {message.author.display_name}")
+        logger.debug(f"Handshake response received from {message.author.display_name}")
         self._response_ok = True
         
         return True
 
 
 class HandshakeResponder:
-    logger = logging.getLogger(__name__)
     
     def __init__(self, client: Selfbot):
         self._client = client
@@ -83,7 +84,7 @@ class HandshakeResponder:
             return
         ts = message.content.split("TS ")[1].strip()
         content = f"{self.name} Responder 🤝: <t:{ts}> TS {ts}"
-        self.logger.debug("Handshake response sent")
+        logger.debug("Handshake response sent")
         if self.webhook:
             self.webhook.content = content
             self.webhook.execute()
