@@ -32,6 +32,8 @@ class VFConfig:
         with open(config_path, 'r') as f:
             self._config = json.load(f)
             
+        logger.info(f"Config version: {self._config.get('config_version', 'unknown')}")
+            
         self._test_mode = self._config.get('test_mode', {"enabled": False})
         if debug:
             self._test_mode['enabled'] = True
