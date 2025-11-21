@@ -2,7 +2,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 import logging
 from datetime import datetime, timedelta
-import asyncio
 
 import selfcord
 from discord_webhook import DiscordWebhook
@@ -46,12 +45,6 @@ class Selfbot(selfcord.Client):
                 self.forward_history_before = datetime.fromisoformat(self.forward_history_before)
             logger.info(f"Forwarding messages since {self.forward_history_since}")
             await self.forward_history_messages(after=self.forward_history_since, before=self.forward_history_before)
-        else:
-            import asyncio
-            timeout = 15
-            await asyncio.sleep(timeout)
-            logger.debug("--- Selfbot shutdown ---")
-            await self.close()
         
     async def on_message(self, message: selfcord.Message, is_forward: bool = False):
         if not self.handshake_responder:
@@ -63,7 +56,6 @@ class Selfbot(selfcord.Client):
             return
         if message.channel.id not in self.config.channel_list:
             return
-        return
         for c in self.channels[message.channel.id]:
             if is_forward and c.get('ignore_forward_history', False):
                 continue
