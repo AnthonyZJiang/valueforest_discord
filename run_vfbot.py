@@ -3,7 +3,7 @@ import dotenv
 import os
 import logging
 
-VERSION: str = 'SMK-2.4.0'
+VERSION: str = 'SMK-3.0.1'
 
 dotenv.load_dotenv()
 
