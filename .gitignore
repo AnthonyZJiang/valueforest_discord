@@ -1,10 +1,11 @@
-.venv
-.vscode
+.venv/
+.vscode/
 .log
 
-__pycache__
+__pycache__/
 .DS_Store
 
 config.json
 *.config.json
 .env
+legacy/
