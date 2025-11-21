@@ -13,4 +13,4 @@ if [[ "$1" == "-U" ]]; then
 	shift
 fi
 
-python3 run_bot.py "$@"  # Pass all arguments to run_bot.py
+python3 run_vfbot.py "$@"  # Pass all arguments to run_bot.py
