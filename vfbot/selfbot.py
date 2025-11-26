@@ -48,7 +48,7 @@ class Selfbot(selfcord.Client):
             logger.info(f"Forwarding messages since {self.forward_history_since}")
             await self.forward_history_messages(after=self.forward_history_since, before=self.forward_history_before)
         
-    async def on_message(self, message: selfcord.Message, config: dict = None,is_forward: bool = False) -> list[tuple[int, int]] | None:
+    async def on_message(self, message: selfcord.Message, is_forward: bool = False) -> None:
         if not self.handshake_responder:
             return
         if self.forward_history_only and not is_forward:
@@ -58,7 +58,6 @@ class Selfbot(selfcord.Client):
             return
         if message.channel.id not in self.config.channel_list:
             return
-        
         for c in self.channel_configs[message.channel.id]:
             if is_forward and c.get('ignore_forward_history', False):
                 continue
@@ -77,13 +76,13 @@ class Selfbot(selfcord.Client):
                 
                 await self.construct_and_send_message(message, c)
     
-    async def construct_and_send_message(self, message: selfcord.Message, config: dict) -> tuple[int, int] | None:
+    async def construct_and_send_message(self, message: selfcord.Message, config: dict) -> None:
         logger.debug(f"(Receiver On message: Received message {message.id} from {message.author.display_name} in {message.channel.name}.")
         msg = VFMessage.from_dc_msg(message, config)
         master_webhook_result = self.send_webhook_message(msg)
         
         if msg.dc_jump_links and master_webhook_result:
-            master_channel_id, _, master_webhook = master_webhook_result
+            master_channel_id, master_webhook = master_webhook_result
             master_guild_id = self.get_guild_id_from_channel_id(master_channel_id)
             linked_messages = await self.search_linked_message(msg.dc_jump_links, master_guild_id)
             if linked_messages:
@@ -94,10 +93,29 @@ class Selfbot(selfcord.Client):
         
         if self.llm_analyser and message.channel.id in self.config.llm_channel:
             self.llm_analyser.analyse(msg)
-            
-        return master_webhook_result
     
-    async def search_linked_message(self, jump_links, master_guild_id: int):
+    async def search_linked_message(self, jump_links, master_guild_id: int) -> list[tuple[int, int]]:
+        """ Search for linked messages in the master guild.
+        
+        Some posts contains links to previous messages, and the forward content will also contain these links.
+        Since these linked messages are not visible to non-vip users, the links in the forwarded content leads
+        to nowhere for these users.
+        
+        However, most likely, the linked messages have been reposted in the master guild already, so we can 
+        search for the linked message contents in the master guild and replace the links in the forwarded content.
+        
+        Parameters:
+        -----------
+        jump_links: :class:`list[tuple[str, int, int]]`
+            A list of the jump link tuples (url, channel_id, message_id).
+        master_guild_id: :class:`int`
+            The ID of the discord server to search for the linked message contents.
+        
+        Returns:
+        --------
+        :class:`list[tuple[int, int]]`
+            The list of channel IDs and message IDs of the linked messages.
+        """
         results = []
         for _, channel_id, message_id in jump_links:
             linked_message = await self.get_channel(channel_id).fetch_message(message_id)
@@ -109,31 +127,24 @@ class Selfbot(selfcord.Client):
             try:
                 message = await anext(search_results)
             except StopAsyncIteration:
-                logger.error(f"Try to search linked message {search_content} but got a StopAsyncIteration error.")
+                logger.error(f'Search returns 0 results for: "{search_content}"')
                 continue
             results.append((message.channel.id, message.id))
         return results
-    
-    async def send_relay_message(self, message: VFMessage, master_guild_id: int) -> tuple[int, int] | None:
-        relay_webhook_url = self.config.message_relay_webhook.get(str(master_guild_id), None)
-        if not relay_webhook_url:
-            logger.error(f"Try to forward message to a non-existent guild {master_guild_id}.")
-            return
         
-        relay_config = {
-            'webhook': [relay_webhook_url]
-        }
-        results = []
-        for _, channel_id, message_id in message.dc_jump_links:
-            channel = self.get_channel(channel_id)
-            if not channel:
-                logger.error(f"Try to forward message to a non-existent channel {channel_id}.")
-                continue
-            linked_message = await self.get_channel(channel_id).fetch_message(message_id)
-            results.append(await self.on_message(linked_message, config=relay_config, relay_message=True))
-        return results
+    def send_webhook_message(self, message: VFMessage) -> tuple[int, DiscordWebhook] | None:
+        """ Send a webhook message to the webhook URL.
         
-    def send_webhook_message(self, message: VFMessage) -> tuple[int, int, DiscordWebhook] | None:
+        Parameters:
+        -----------
+        message: :class:`VFMessage`
+            The message to send.
+        
+        Returns:
+        --------
+        :class:`tuple[int, DiscordWebhook]` | :class:`None`
+            The channel ID and the webhook object if the message is sent successfully, otherwise :class:`None`.
+        """
         for webhook_config in message.webhook_configs:
             webhook = DiscordWebhook(url=webhook_config.url)
             webhook.content = message.content
@@ -145,7 +156,7 @@ class Selfbot(selfcord.Client):
             logger.debug(f"(Receiver Sent webhook message. Status code: {res.status_code}.")
             if res.content:
                 content = json.loads(res.content)
-                return content.get('channel_id'), content.get('id'), webhook
+                return int(content.get('channel_id')), webhook
     
     async def forward_history_messages_by_channel(self, from_channel_id: int, after: datetime, before: datetime = None, rate: int = 2):
         logger.info(f"Forwarding history messages from {from_channel_id} after {after}.")
