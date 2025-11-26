@@ -14,6 +14,9 @@ def pop_from_checklist(checklist: list[str], item: str) -> None:
 
 class KeepAliveConfig:
     def __init__(self, config: dict):
+        if not config:
+            self.enabled = False
+            return
         self.status_message_channel_id = config.get("status_message_channel_id", None)
         self.status_message_id = config.get("status_message_id", None)
         self.down_time_require_pull_only_seconds = config.get("down_time_require_pull_only_seconds", 15)
@@ -25,26 +28,34 @@ class KeepAliveConfig:
         self.handshake_timeout = _config_handshake.get("timeout", 65)
         self.handshake_response_webhook = _config_handshake.get("response_webhook", None)
         
+        self.enabled = self.handshake_name is not None and self.handshake_channel_id is not None and self.handshake_response_webhook is not None
+        
+        
 class VFConfig:
     
     def __init__(self, config_path: str, debug: bool = False, keepalive_only = False):
         self.config_path = config_path
         with open(config_path, 'r') as f:
             self._config = json.load(f)
-            
+        
         logger.info(f"Config version: {self._config.get('config_version', 'unknown')}")
-            
+        
         self._test_mode = self._config.get('test_mode', {"enabled": False})
         if debug:
             self._test_mode['enabled'] = True
         self.self_token = self._config['self_token']
-        self.bot_token = self._config['bot_token']
+        self.bot_token = self._config.get('bot_token', None)
         self.keepalive = KeepAliveConfig(self._config.get("keepalive", {}))
+        self.keepalive.enabled = self.keepalive.enabled and self.bot_token is not None
         
         self.repost_settings = {}
         
         if keepalive_only:
             return
+        
+        self.read_selfbot_config()
+        
+    def read_selfbot_config(self):
         self.construct_repost_settings()
         self.channel_list = list(self.repost_settings.keys())
         

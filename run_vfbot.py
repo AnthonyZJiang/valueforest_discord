@@ -1,4 +1,4 @@
-from vfbot import KeepAliveBot, VFConfig, setup_logging
+from vfbot import Selfbot, KeepAliveBot, VFConfig, setup_logging
 import dotenv
 import os
 import logging
@@ -37,11 +37,23 @@ else:
 
 logger.info(f"Bot version {VERSION}...")
 config = VFConfig('config.json', keepalive_only=True)
-bot = KeepAliveBot(config)
-try:
-    bot.run(token=config.bot_token, log_handler=stream_handler)
-except KeyboardInterrupt:
-    logger.info("Bot stopped by user.")
-    bot.stop()
-except Exception as e:
-    logger.error(f"Error starting bot: {e}", exc_info=True)
+
+if config.keepalive.enabled:
+    bot = KeepAliveBot(config)
+    try:
+        bot.run(token=config.bot_token, log_handler=stream_handler)
+    except KeyboardInterrupt:
+        logger.info("Bot stopped by user.")
+        bot.stop()
+    except Exception as e:
+        logger.error(f"Error starting bot: {e}", exc_info=True)
+else:
+    config.read_selfbot_config()
+    bot = Selfbot(config)
+    try:
+        bot.run(token=config.self_token, log_handler=stream_handler)
+    except KeyboardInterrupt:
+        logger.info("Bot stopped by user.")
+        bot.stop()
+    except Exception as e:
+        logger.error(f"Error starting bot: {e}", exc_info=True)

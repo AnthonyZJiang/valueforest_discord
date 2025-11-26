@@ -1,7 +1,19 @@
 {
     "config_version": "20251008-1000",
-    "bot_token": "YOUR_BOT_TOKEN",
+    "bot_token": "YOUR_BOT_TOKEN", // [optional] Keepalive bot token
     "self_token": "YOUR_SELF_TOKEN",
+    "keepalive": { // [optional] Keepalive config
+        "status_message_channel_id": 1234567890, // [optional] The channel to post the status message: e.g. last heartbeat time: xx:xx:xx, xxx ago
+        "down_time_require_pull_only_seconds": 15, // If the bot is down for more than this time, an additional bot will be started to pull lost historical messages.
+        "critical_status_webhook": "", // [optional] A webhook to post the critical status message: e.g. bot is down, bot is up etc.
+        "handshake": {
+            "channel_id": 1234567890, // The channel to send handshake messages
+            "name": "valueforest", // A unique name to ID the handshake messages
+            "interval": 30, // The interval to send handshake messages
+            "timeout": 65, // The timeout to wait for the response
+            "response_webhook": "" // A webhook to post the response message
+        }
+    },
     "test_mode": {
         "enabled": false, // If true, the bot will only post messages to the test channel or via webhook.
         "flagged_only": true, // If true, the bot will only accept rules that are flagged with 'flag_test_mode'. Useful if you want to test a few rules.

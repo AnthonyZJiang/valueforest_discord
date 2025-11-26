@@ -41,8 +41,7 @@ class MonitorLayer:
 
         self.status_message_channel_id = self._client.config.keepalive.status_message_channel_id
         if not self.status_message_channel_id:
-            logger.error(f'Status message channel ID is not set')
-            raise ValueError(f'Status message channel ID is not set')
+            logger.warning(f'Status message channel ID is not set.')
 
         self.status_message_id = self._client.config.keepalive.status_message_id # allow message id to be None as it may not have been created yet
         self._status_message: discord.Message = None
@@ -69,10 +68,8 @@ class MonitorLayer:
             return
         await self.hs_initiator.send()
         self._next_handshake_timestamp = time.perf_counter() + self._client.config.keepalive.handshake_interval
-        # logger.debug(f"{time.perf_counter():.2f} Next handshake timestamp set to {self._next_handshake_timestamp:.2f}")
         if self._handshake_timeout_timestamp is None:
             self._handshake_timeout_timestamp = time.perf_counter() + self._client.config.keepalive.handshake_timeout
-            # logger.debug(f"{time.perf_counter():.2f} Handshake timeout timestamp set to {self._handshake_timeout_timestamp:.2f}")
             
     async def receive_handshake_response(self, message: discord.Message):
         ok = self.hs_initiator.check_response(message)
@@ -80,9 +77,10 @@ class MonitorLayer:
             await self._update_status_message()
             self.last_ok_datetime = datetime.now()
             self._handshake_timeout_timestamp = time.perf_counter() + self._client.config.keepalive.handshake_timeout
-            # logger.debug(f"{time.perf_counter():.2f} Handshake timeout timestamp set to {self._handshake_timeout_timestamp:.2f}")
-
+            
     async def _update_status_message(self):
+        if not self.status_message_channel_id:
+            return
         if not self._status_message:
             await self._initialise_status_message()
             if not self._status_message:
