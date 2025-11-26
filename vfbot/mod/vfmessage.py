@@ -21,7 +21,7 @@ class WebhookConfig:
         self.use_dynamic_avatar_name = use_dynamic_avatar_name
 
 class VFMessage:
-    def __init__(self, content: str, config: dict, raw_msg_carrier = None, author_name = None, credit = None, embeds = [], reference_msg = None):
+    def __init__(self, content: str, config: dict, **kwargs): # raw_msg_carrier = None, author_name = None, credit = None, embeds = [], reference_msg = None):
         self._content = content
         self.config = config
         
@@ -39,27 +39,18 @@ class VFMessage:
         self.show_author_name = config.get('show_author_name', False) and not self.is_webhook
         self.show_credit = config.get('show_credit', False)
             
-        self.raw_msg_carrier: discord.Message = raw_msg_carrier
-        self.author_name: str = author_name
-        self.credit: str = credit
-        self.embeds: list[dict] = embeds
-        self.reference_msg: discord.Message = reference_msg
+        self.raw_msg_carrier: discord.Message = kwargs.get('raw_msg_carrier', None)
+        self.author_name: str = kwargs.get('author_name', None)
+        self.credit: str = kwargs.get('credit', None)
+        self.embeds: list[dict] = kwargs.get('embeds', [])
+        self.reference_msg: discord.Message = kwargs.get('reference_msg', None)
+        self.dc_jump_links: list[tuple[str, int, int]] = kwargs.get('dc_jump_links', []) # url, channel id and message id
+        
         self.webhook_author_name: str = self.raw_msg_carrier.author.display_name
         
     @classmethod
     def from_dc_msg(cls, dc_msg: discord.Message, config: dict) -> Self:
         def get_author_name(author_name: str):
-            if author_name == '$cathy-whale$':
-                return '巨鲸分析'
-            elif author_name == '$cathy-swing$':
-                return '短线分析'
-            elif author_name == '$cathy-view$':
-                return '观点分享'
-            elif author_name == '$cathy-invest$':
-                return '长线布局'
-            elif author_name == '$cathy-strategy$':
-                return '交易心得'
-            else:
                 return author_name
         
         def get_embeds(embeds: list[discord.Embed]):
@@ -69,27 +60,14 @@ class VFMessage:
                     embeds_list.append(VFMessage.selfcord_embed_to_dict(embed))
             return embeds_list
             
+        def get_dc_jump_links(content: str) -> list[int]:
+            #url example: "https://discord.com/channels/1320356811441700954/1332897444530487358/1442530901266268223" 
+            matches = re.findall(r'(https://discord\.com/channels/(\d+)/(\d+)/(\d+))', content)
+            if matches:
+                return [(match[0], int(match[2]), int(match[3])) for match in matches]
+            return []
+        
         content = dc_msg.content
-
-        if dc_msg.author.id == ASHLEY_ID: # ashley
-            content = content.replace("@c2.ini", "")
-            content = re.sub(r':9655_eyesshaking_new:|<a:9655_eyesshaking_new:\d+>', ":eyes:", content)
-            content = content.replace(":pngwing:", ":red_circle:")
-            content = content.replace(":verifyblue:", ":white_check_mark:")
-            content = re.sub(r':RedAlert:|<a:RedAlert:\d+>', ":new:", content)
-            
-        elif dc_msg.author.id == ANGELA_ID: # angela
-            content = content.replace("@c2.ini", "")
-            content = re.sub(r':9655_eyesshaking_new:|<a:9655_eyesshaking_new:\d+>', ":eyes:", content)
-            content = content.replace(":pngwing:", ":red_circle:")
-            content = content.replace(":verifyblue:", ":white_check_mark:")
-            content = re.sub(r':8375_siren_blue:|<a:8375_siren_blue:\d+>', ":new:", content)
-            content = re.sub(r':RedAlert:|<a:RedAlert:\d+>', ":red_sqare:", content)
-            content = re.sub(r':greensiren:|<a:greensiren:\d+>', ":green_square:", content)
-            
-        elif dc_msg.author.id == ENRICH_ID: # entrich
-            content = content.replace("@c2.ini", "")
-            content = re.sub(r'[!+$@#]+alert', '', content)
             
         if dc_msg.attachments:
             content += " " + " ".join([f.url for f in dc_msg.attachments])
@@ -103,7 +81,9 @@ class VFMessage:
                   author_name = get_author_name(author_name),
                   credit = dc_msg.jump_url, 
                   embeds = get_embeds(dc_msg.embeds),
-                  reference_msg = dc_msg.reference.resolved if dc_msg.reference else None)
+                  reference_msg = dc_msg.reference.resolved if dc_msg.reference else None,
+                  dc_jump_links = get_dc_jump_links(content))
+        
         highlight_set = False
         if config.get('role_highlight', None):
             for role in dc_msg.author.roles:
@@ -154,6 +134,9 @@ class VFMessage:
         if time_str := self.get_date_str():
             _content = f"{time_str}\n{_content}"
         return _content.strip()
+    
+    def search_and_replace_content(self, search_content: str, replace_content: str) -> str:
+        self._content = self._content.replace(search_content, replace_content)
     
     def stylize(self) -> str:
         style = self.config.get('style', None)
