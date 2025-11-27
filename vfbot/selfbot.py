@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from .mod.vfmessage import WebhookConfig
 
 
-MAX_WORKERS = 10
+MAX_WORKERS = 5
 
 logger = logging.getLogger(__name__)
 sem = asyncio.Semaphore(MAX_WORKERS)
@@ -246,17 +246,19 @@ class Selfbot(selfcord.Client):
         while True:
             try:
                 hist = [msg async for msg in channel.history(limit=100, after=after, before=before, oldest_first=True)]
-                await asyncio.sleep(0.1) # avoid rate limit
             except selfcord.Forbidden:
                 logger.error(f"Try to forward history messages from a channel {channel.name} but got a Forbidden error.")
                 return
             if len(hist) == 0:
+                await asyncio.sleep(1) # avoid rate limit
                 break
             for message in hist:
                 if await self.on_message(message, is_forward=True):
                     sent += 1
                     await asyncio.sleep(interval)
                 count += 1
+            if sent == 0:
+                await asyncio.sleep(1) # avoid rate limit
                 
             after = hist[-1].created_at + timedelta(microseconds=1)
 
