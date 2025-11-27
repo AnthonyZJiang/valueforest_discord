@@ -179,11 +179,11 @@ class Selfbot(selfcord.Client):
                 return int(content.get('channel_id')), webhook
     
     async def forward_history_messages_by_channel(self, from_channel_id: int, after: datetime, before: datetime = None, interval: float = 0.1):
-        logger.info(f"Forwarding history messages from {from_channel_id} after {after}.")
         channel = self.get_channel(from_channel_id)
         if not channel:
             logger.error(f"Try to forward history messages from a non-existent channel {from_channel_id}.")
             return
+        logger.debug(f"Forwarding history messages from {channel.name}.")
         sent, count = 0, 0
         while True:
             try:
