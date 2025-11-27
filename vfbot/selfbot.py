@@ -4,6 +4,7 @@ import logging
 from datetime import datetime, timedelta
 import json
 import re
+import asyncio
 
 import selfcord
 from discord_webhook import DiscordWebhook
@@ -85,7 +86,7 @@ class Selfbot(selfcord.Client):
     async def construct_and_send_message(self, message: selfcord.Message, config: dict) -> bool:
         logger.debug(f"(Receiver On message: Received message {message.id} from {message.author.display_name} in {message.channel.name}.")
         msg = VFMessage.from_dc_msg(message, config)
-        master_webhook_result = self.send_webhook_message(msg)
+        master_webhook_result = await self.send_webhook_message(msg)
         if not master_webhook_result:
             return False
         if msg.dc_jump_links and master_webhook_result:
@@ -141,7 +142,7 @@ class Selfbot(selfcord.Client):
             results.append((message.channel.id, message.id))
         return results
         
-    def send_webhook_message(self, message: VFMessage) -> tuple[int, DiscordWebhook] | None:
+    async def send_webhook_message(self, message: VFMessage) -> tuple[int, DiscordWebhook] | None:
         """ Send a webhook message to the webhook URL.
         
         Parameters:
@@ -163,7 +164,12 @@ class Selfbot(selfcord.Client):
             webhook.embeds = message.embeds
             res = webhook.execute()
             logger.debug(f"(Receiver Sent webhook message. Status code: {res.status_code}.")
-            if res.status_code == 200:
+            if res.status_code == 429:
+                retry_after = json.loads(res.content).get('retry_after')
+                if retry_after:
+                    await asyncio.sleep(retry_after)
+                    await self.send_webhook_message(message)
+            elif res.status_code == 200:
                 content = json.loads(res.content)
                 return int(content.get('channel_id')), webhook
     
