@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import json
 import re
 import asyncio
+from difflib import get_close_matches
 
 import selfcord
 from discord_webhook import DiscordWebhook
@@ -15,6 +16,7 @@ from .mod.vfmessage import VFMessage
 
 if TYPE_CHECKING:
     from .mod.vfconfig import VFConfig
+    from .mod.vfmessage import WebhookConfig
 
 
 MAX_WORKERS = 10
@@ -91,18 +93,18 @@ class Selfbot(selfcord.Client):
     async def construct_and_send_message(self, message: selfcord.Message, config: dict) -> bool:
         # logger.debug(f"(Receiver On message: Received message {message.id} from {message.author.display_name} in {message.channel.name}.")
         msg = VFMessage.from_dc_msg(message, config)
-        master_webhook_result = await self.send_webhook_message(msg)
-        if not master_webhook_result:
-            return False
-        if msg.dc_jump_links and master_webhook_result:
-            master_channel_id, master_webhook = master_webhook_result
-            master_guild_id = self.get_guild_id_from_channel_id(master_channel_id)
-            linked_messages = await self.search_linked_message(msg.dc_jump_links, master_guild_id)
-            if linked_messages:
-                for i, (channel_id, message_id) in enumerate(linked_messages):
-                    msg.search_and_replace_content(msg.dc_jump_links[i][0], f"https://discord.com/channels/{master_guild_id}/{channel_id}/{message_id}")
-                master_webhook.content=msg.content
-                master_webhook.edit()
+        for webhook_config in msg.webhook_configs:
+            master_channel_id, master_webhook = await self.send_webhook_message(msg, webhook_config)
+            if not master_channel_id:
+                return False
+            if msg.dc_jump_links and master_webhook:
+                master_guild_id = self.get_guild_id_from_channel_id(master_channel_id)
+                linked_messages = await self.search_linked_message(msg.dc_jump_links, master_guild_id)
+                if linked_messages:
+                    for i, (channel_id, message_id) in enumerate(linked_messages):
+                        msg.search_and_replace_content(msg.dc_jump_links[i][0], f"https://discord.com/channels/{master_guild_id}/{channel_id}/{message_id}")
+                    master_webhook.content=msg.content
+                    master_webhook.edit()
         
         if self.llm_analyser and message.channel.id in self.config.llm_channel:
             self.llm_analyser.analyse(msg)
@@ -133,21 +135,32 @@ class Selfbot(selfcord.Client):
         """
         results = []
         for _, channel_id, message_id in jump_links:
-            linked_message = await self.get_channel(channel_id).fetch_message(message_id)
+            linked_channel = self.get_channel(channel_id)
+            if not linked_channel:
+                logger.error(f"Try to search for a linked message in a non-existent channel {channel_id}.")
+                continue
+            linked_message = await linked_channel.fetch_message(message_id)
+            if not linked_message:
+                logger.error(f"Try to search for a linked message in a non-existent message {message_id}.")
+                continue
             # find the first 100 characters of the message content, cut at nearest space
             search_content = ' '.join(linked_message.content[:100].split(' ')[:-1])
             # remove any trailing numbers and \n
             search_content = re.sub(r'\d+$|\n', '', search_content)
-            search_results = self.get_guild(master_guild_id).search(content=search_content, limit=1, most_relevant=True)
+            search_results = self.get_guild(master_guild_id).search(content=search_content, limit=5, oldest_first=True)
             try:
-                message = await anext(search_results)
+                messages = [message async for message in search_results]
             except StopAsyncIteration:
                 logger.error(f'Search returns 0 results for: "{search_content}"')
-                continue
-            results.append((message.channel.id, message.id))
+                continue          
+            channel_names = [message.channel.name for message in messages]
+            matches = get_close_matches(linked_channel.name, channel_names, n=1)
+            if matches:
+                message = messages[channel_names.index(matches[0])]
+                results.append((message.channel.id, message.id))
         return results
         
-    async def send_webhook_message(self, message: VFMessage) -> tuple[int, DiscordWebhook] | None:
+    async def send_webhook_message(self, message: VFMessage, webhook_config: WebhookConfig) -> tuple[int | None, DiscordWebhook | None]:
         """ Send a webhook message to the webhook URL.
         
         Parameters:
@@ -160,23 +173,32 @@ class Selfbot(selfcord.Client):
         :class:`tuple[int, DiscordWebhook]` | :class:`None`
             The channel ID and the webhook object if the message is sent successfully, otherwise :class:`None`.
         """
-        for webhook_config in message.webhook_configs:
-            webhook = DiscordWebhook(url=webhook_config.url)
-            webhook.content = message.content
-            if isinstance(message.raw_msg_carrier, selfcord.Message) and webhook_config.use_dynamic_avatar_name:
-                webhook.username = message.webhook_author_name
-                webhook.avatar_url = message.raw_msg_carrier.author.display_avatar.url
-            webhook.embeds = message.embeds
-            res = webhook.execute()
-            logger.debug(f"(Receiver Sent webhook message. Status code: {res.status_code}.")
-            if res.status_code == 429:
-                retry_after = json.loads(res.content).get('retry_after')
-                if retry_after:
-                    await asyncio.sleep(retry_after)
-                    await self.send_webhook_message(message)
-            elif res.status_code == 200:
-                content = json.loads(res.content)
-                return int(content.get('channel_id')), webhook
+        webhook = DiscordWebhook(url=webhook_config.url)
+        webhook.content = message.content
+        if isinstance(message.raw_msg_carrier, selfcord.Message) and webhook_config.use_dynamic_avatar_name:
+            webhook.username = message.webhook_author_name
+            webhook.avatar_url = message.raw_msg_carrier.author.display_avatar.url
+        webhook.embeds = message.embeds
+        res = webhook.execute()
+        logger.debug(f"(Receiver Sent webhook message. Status code: {res.status_code}.")
+        if res.status_code == 429:
+            retry_after = json.loads(res.content).get('retry_after')
+            if retry_after:
+                await asyncio.sleep(retry_after)
+                return await self.send_webhook_message(message, webhook_config)
+        elif res.status_code != 200:
+            logger.warning(f"Unknown webhook status code: {res.status_code}")
+
+        try:
+            content = json.loads(res.content)
+        except json.JSONDecodeError:
+            logger.error(f"Failed to parse webhook response content: {res.content}")
+            return None, None
+        channel_id = content.get('channel_id')
+        if not channel_id:
+            logger.error(f"Webhook response content does not contain a channel ID.")
+            return None, None
+        return int(channel_id), webhook
     
     async def forward_history_messages_by_channel(self, from_channel_id: int, after: datetime, before: datetime = None, interval: float = 0.1):
         channel = self.get_channel(from_channel_id)
@@ -211,11 +233,15 @@ class Selfbot(selfcord.Client):
         
         tasks = []
         if self.forward_history_from_channels:
-            for name in self.forward_history_from_channels:
-                id = self.config.config['channels'].get(name, None)
-                if not id:
-                    logger.error(f"Channel {name} not found in config.")
-                    continue
+            for id in self.forward_history_from_channels:
+                if isinstance(id, str):
+                    if id.isdigit():
+                        id = int(id)
+                    else:
+                        id = self.config.config['channels'].get(id, None)
+                        if not id:
+                            logger.error(f"Channel {id} not found in config.")
+                            continue
                 tasks.append(asyncio.create_task(forward_with_limit(id, after, before, interval)))
         else:
             for id in self.config.channel_list:
