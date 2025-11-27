@@ -74,44 +74,79 @@ class Selfbot(selfcord.Client):
             if is_forward and c.get('ignore_forward_history', False):
                 # when forwarding history, ignore channels that are configured to ignore forwarding history
                 continue
-            if author_ids := c.get('author_filter', {}).keys():
-                if message.author.id not in author_ids:
-                    continue
-                author_id_name = c['author_filter'][message.author.id].get('display_name_filter', None)
-                if author_id_name:
-                    if isinstance(author_id_name, list):
-                        if message.author.display_name not in author_id_name:
-                            continue
-                    else:
-                        if message.author.display_name != author_id_name:
-                            continue
-                c['author'] = c['author_filter'][message.author.id]
-                
+            is_author_valid, author_config = self.check_author(message, c)
+            if not is_author_valid:
+                continue
+            c['author'] = author_config
             sent = await self.construct_and_send_message(message, c)
         return sent
     
+    def check_author(self, message: selfcord.Message, config: dict) -> tuple[bool, dict | None]:
+        """ Check if the message author is valid for the channel config.
+        
+        Parameters:
+        -----------
+        message: :class:`selfcord.Message`
+            The message to check.
+        config: :class:`dict`
+            The channel config.
+            
+        Returns:
+        --------
+        :class:`tuple[bool, dict | None]`
+            A tuple containing a boolean indicating if the message author is valid and the author configuration if valid, otherwise :class:`None`.
+        """
+        if author_ids := config.get('author_filter', {}).keys():
+            if message.author.id not in author_ids:
+                return False, None
+            author_id_name = config['author_filter'][message.author.id].get('display_name_filter', None)
+            if author_id_name:
+                if isinstance(author_id_name, list):
+                    if message.author.display_name not in author_id_name:
+                        return False, None
+                else:
+                    if message.author.display_name != author_id_name:
+                        return False, None
+            return True, config['author_filter'][message.author.id]
+        return True, None
+    
     async def construct_and_send_message(self, message: selfcord.Message, config: dict) -> bool:
-        # logger.debug(f"(Receiver On message: Received message {message.id} from {message.author.display_name} in {message.channel.name}.")
+        """ Construct and send a message to the webhooks.
+        
+        Parameters:
+        -----------
+        message: :class:`selfcord.Message`
+            The message to construct and send.
+        config: :class:`dict`
+            The channel config.
+        
+        Returns:
+        --------
+        :class:`bool`
+            :class:`True` if the message is sent successfully, otherwise :class:`False`.
+        """
+        logger.debug(f"Received message {message.id} from {message.author.display_name} in {message.channel.name}.")
         msg = VFMessage.from_dc_msg(message, config)
         for webhook_config in msg.webhook_configs:
-            master_channel_id, master_webhook = await self.send_webhook_message(msg, webhook_config)
-            if not master_channel_id:
+            sent_msg_channel_id, sent_msg_webhook = await self.send_webhook_message(msg, webhook_config)
+            if not sent_msg_channel_id:
                 return False
-            if msg.dc_jump_links and master_webhook:
-                master_guild_id = self.get_guild_id_from_channel_id(master_channel_id)
-                linked_messages = await self.search_linked_message(msg.dc_jump_links, master_guild_id)
-                if linked_messages:
-                    for i, (channel_id, message_id) in enumerate(linked_messages):
-                        msg.search_and_replace_content(msg.dc_jump_links[i][0], f"https://discord.com/channels/{master_guild_id}/{channel_id}/{message_id}")
-                    master_webhook.content=msg.content
-                    master_webhook.edit()
+            if msg.dc_jump_links and sent_msg_webhook:
+                sent_msg_guild_id = self.get_guild_id_from_channel_id(sent_msg_channel_id)
+                matches = await self.search_linked_message(msg.dc_jump_links, sent_msg_guild_id)
+                if matches:
+                    for jump_link_url, matched_channel_id, matched_message_id in matches:
+                        msg.find_and_replace(jump_link_url, 
+                                             f"https://discord.com/channels/{sent_msg_guild_id}/{matched_channel_id}/{matched_message_id}")
+                    sent_msg_webhook.content=msg.content
+                    sent_msg_webhook.edit()
         
         if self.llm_analyser and message.channel.id in self.config.llm_channel:
             self.llm_analyser.analyse(msg)
         
         return True
     
-    async def search_linked_message(self, jump_links, master_guild_id: int) -> list[tuple[int, int]]:
+    async def search_linked_message(self, jump_links, sent_msg_guild_id: int) -> list[tuple[str, int, int]]:
         """ Search for linked messages in the master guild.
         
         Some posts contains links to previous messages, and the forward content will also contain these links.
@@ -125,16 +160,16 @@ class Selfbot(selfcord.Client):
         -----------
         jump_links: :class:`list[tuple[str, int, int]]`
             A list of the jump link tuples (url, channel_id, message_id).
-        master_guild_id: :class:`int`
+        sent_msg_guild_id: :class:`int`
             The ID of the discord server to search for the linked message contents.
         
         Returns:
         --------
-        :class:`list[tuple[int, int]]`
-            The list of channel IDs and message IDs of the linked messages.
+        :class:`list[tuple[str, int, int]]`
+            The list of original jump link url, matched_channel ID and matched_message ID of the linked messages.
         """
         results = []
-        for _, channel_id, message_id in jump_links:
+        for url, channel_id, message_id in jump_links:
             linked_channel = self.get_channel(channel_id)
             if not linked_channel:
                 logger.error(f"Try to search for a linked message in a non-existent channel {channel_id}.")
@@ -147,17 +182,17 @@ class Selfbot(selfcord.Client):
             search_content = ' '.join(linked_message.content[:100].split(' ')[:-1])
             # remove any trailing numbers and \n
             search_content = re.sub(r'\d+$|\n', '', search_content)
-            search_results = self.get_guild(master_guild_id).search(content=search_content, limit=5, oldest_first=True)
+            search_results = self.get_guild(sent_msg_guild_id).search(content=search_content, limit=5, oldest_first=True)
             try:
-                messages = [message async for message in search_results]
+                similar_messages = [message async for message in search_results]
             except StopAsyncIteration:
                 logger.error(f'Search returns 0 results for: "{search_content}"')
                 continue          
-            channel_names = [message.channel.name for message in messages]
+            channel_names = [message.channel.name for message in similar_messages]
             matches = get_close_matches(linked_channel.name, channel_names, n=1)
             if matches:
-                message = messages[channel_names.index(matches[0])]
-                results.append((message.channel.id, message.id))
+                matched_message = similar_messages[channel_names.index(matches[0])]
+                results.append((url, matched_message.channel.id, matched_message.id))
         return results
         
     async def send_webhook_message(self, message: VFMessage, webhook_config: WebhookConfig) -> tuple[int | None, DiscordWebhook | None]:
@@ -180,7 +215,7 @@ class Selfbot(selfcord.Client):
             webhook.avatar_url = message.raw_msg_carrier.author.display_avatar.url
         webhook.embeds = message.embeds
         res = webhook.execute()
-        logger.debug(f"(Receiver Sent webhook message. Status code: {res.status_code}.")
+        logger.debug(f"Sent webhook message. Status code: {res.status_code}.")
         if res.status_code == 429:
             retry_after = json.loads(res.content).get('retry_after')
             if retry_after:
