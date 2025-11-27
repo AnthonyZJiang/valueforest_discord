@@ -48,18 +48,23 @@ class Selfbot(selfcord.Client):
             logger.info(f"Forwarding messages since {self.forward_history_since}")
             await self.forward_history_messages(after=self.forward_history_since, before=self.forward_history_before)
         
-    async def on_message(self, message: selfcord.Message, is_forward: bool = False) -> None:
-        if not self.handshake_responder:
-            return
+    async def on_message(self, message: selfcord.Message, is_forward: bool = False) -> bool:
+        # if not self.handshake_responder:
+        #     return
         if self.forward_history_only and not is_forward:
-            return
+            # when in forwarding history only mode, ignore any new messages
+            return False
         if not self.forward_history_only and self.handshake_responder.is_valid_handshake_message(message):
+            # handle handshake messages
             self.handshake_responder.respond(message)
-            return
+            return False
         if message.channel.id not in self.config.channel_list:
-            return
+            # ignore messages from channels not in the config
+            return False
+        sent = False
         for c in self.channel_configs[message.channel.id]:
             if is_forward and c.get('ignore_forward_history', False):
+                # when forwarding history, ignore channels that are configured to ignore forwarding history
                 continue
             if author_ids := c.get('author_filter', {}).keys():
                 if message.author.id not in author_ids:
@@ -74,13 +79,15 @@ class Selfbot(selfcord.Client):
                             continue
                 c['author'] = c['author_filter'][message.author.id]
                 
-                await self.construct_and_send_message(message, c)
+            sent = await self.construct_and_send_message(message, c)
+        return sent
     
-    async def construct_and_send_message(self, message: selfcord.Message, config: dict) -> None:
+    async def construct_and_send_message(self, message: selfcord.Message, config: dict) -> bool:
         logger.debug(f"(Receiver On message: Received message {message.id} from {message.author.display_name} in {message.channel.name}.")
         msg = VFMessage.from_dc_msg(message, config)
         master_webhook_result = self.send_webhook_message(msg)
-        
+        if not master_webhook_result:
+            return False
         if msg.dc_jump_links and master_webhook_result:
             master_channel_id, master_webhook = master_webhook_result
             master_guild_id = self.get_guild_id_from_channel_id(master_channel_id)
@@ -93,6 +100,8 @@ class Selfbot(selfcord.Client):
         
         if self.llm_analyser and message.channel.id in self.config.llm_channel:
             self.llm_analyser.analyse(msg)
+        
+        return True
     
     async def search_linked_message(self, jump_links, master_guild_id: int) -> list[tuple[int, int]]:
         """ Search for linked messages in the master guild.
@@ -154,7 +163,7 @@ class Selfbot(selfcord.Client):
             webhook.embeds = message.embeds
             res = webhook.execute()
             logger.debug(f"(Receiver Sent webhook message. Status code: {res.status_code}.")
-            if res.content:
+            if res.status_code == 200:
                 content = json.loads(res.content)
                 return int(content.get('channel_id')), webhook
     
@@ -164,21 +173,24 @@ class Selfbot(selfcord.Client):
         if not channel:
             logger.error(f"Try to forward history messages from a non-existent channel {from_channel_id}.")
             return
+        sent = 0
         count = 0
         while True:
             try:
                 hist = [msg async for msg in channel.history(limit=100, after=after, before=before, oldest_first=True)]
             except selfcord.Forbidden:
-                logger.error(f"Try to forward history messages from a channel {from_channel_id} but got a Forbidden error.")
+                logger.error(f"Try to forward history messages from a channel {channel.name} but got a Forbidden error.")
                 return
             if len(hist) == 0:
                 break
             for message in hist:
-                await self.on_message(message, is_forward=True)
+                if await self.on_message(message, is_forward=True):
+                    sent += 1
                 count += 1
+                
             after = hist[-1].created_at + timedelta(microseconds=1)
 
-        logger.info(f"Forwarded {count} messages from {from_channel_id}.")
+        logger.info(f"Forwarded {sent} / {count} messages from {channel.name}.")
         
     async def forward_history_messages(self, after: datetime, before: datetime = None, rate: int = 2):
         if self.forward_history_from_channels:
