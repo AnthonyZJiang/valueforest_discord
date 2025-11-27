@@ -17,7 +17,11 @@ if TYPE_CHECKING:
     from .mod.vfconfig import VFConfig
 
 
+MAX_WORKERS = 10
+
 logger = logging.getLogger(__name__)
+sem = asyncio.Semaphore(MAX_WORKERS)
+
 
 class Selfbot(selfcord.Client):
 
@@ -63,6 +67,7 @@ class Selfbot(selfcord.Client):
             # ignore messages from channels not in the config
             return False
         sent = False
+        
         for c in self.channel_configs[message.channel.id]:
             if is_forward and c.get('ignore_forward_history', False):
                 # when forwarding history, ignore channels that are configured to ignore forwarding history
@@ -84,11 +89,13 @@ class Selfbot(selfcord.Client):
         return sent
     
     async def construct_and_send_message(self, message: selfcord.Message, config: dict) -> bool:
-        logger.debug(f"(Receiver On message: Received message {message.id} from {message.author.display_name} in {message.channel.name}.")
+        # logger.debug(f"(Receiver On message: Received message {message.id} from {message.author.display_name} in {message.channel.name}.")
         msg = VFMessage.from_dc_msg(message, config)
         master_webhook_result = await self.send_webhook_message(msg)
         if not master_webhook_result:
             return False
+        elif master_webhook_result == (1,1):
+            return True
         if msg.dc_jump_links and master_webhook_result:
             master_channel_id, master_webhook = master_webhook_result
             master_guild_id = self.get_guild_id_from_channel_id(master_channel_id)
@@ -155,6 +162,7 @@ class Selfbot(selfcord.Client):
         :class:`tuple[int, DiscordWebhook]` | :class:`None`
             The channel ID and the webhook object if the message is sent successfully, otherwise :class:`None`.
         """
+        return 1, 1
         for webhook_config in message.webhook_configs:
             webhook = DiscordWebhook(url=webhook_config.url)
             webhook.content = message.content
@@ -173,17 +181,17 @@ class Selfbot(selfcord.Client):
                 content = json.loads(res.content)
                 return int(content.get('channel_id')), webhook
     
-    async def forward_history_messages_by_channel(self, from_channel_id: int, after: datetime, before: datetime = None, rate: int = 2):
+    async def forward_history_messages_by_channel(self, from_channel_id: int, after: datetime, before: datetime = None, interval: float = 0.1):
         logger.info(f"Forwarding history messages from {from_channel_id} after {after}.")
         channel = self.get_channel(from_channel_id)
         if not channel:
             logger.error(f"Try to forward history messages from a non-existent channel {from_channel_id}.")
             return
-        sent = 0
-        count = 0
+        sent, count = 0, 0
         while True:
             try:
                 hist = [msg async for msg in channel.history(limit=100, after=after, before=before, oldest_first=True)]
+                await asyncio.sleep(0.1) # avoid rate limit
             except selfcord.Forbidden:
                 logger.error(f"Try to forward history messages from a channel {channel.name} but got a Forbidden error.")
                 return
@@ -192,23 +200,30 @@ class Selfbot(selfcord.Client):
             for message in hist:
                 if await self.on_message(message, is_forward=True):
                     sent += 1
+                    await asyncio.sleep(interval)
                 count += 1
                 
             after = hist[-1].created_at + timedelta(microseconds=1)
 
         logger.info(f"Forwarded {sent} / {count} messages from {channel.name}.")
         
-    async def forward_history_messages(self, after: datetime, before: datetime = None, rate: int = 2):
+    async def forward_history_messages(self, after: datetime, before: datetime = None, interval: float = 0.1):
+        async def forward_with_limit(channel_id: int, after: datetime, before: datetime, interval: float):
+            async with sem:
+                await self.forward_history_messages_by_channel(channel_id, after, before, interval)
+        
+        tasks = []
         if self.forward_history_from_channels:
             for name in self.forward_history_from_channels:
                 id = self.config.config['channels'].get(name, None)
                 if not id:
                     logger.error(f"Channel {name} not found in config.")
                     continue
-                await self.forward_history_messages_by_channel(id, after, before, rate)
+                tasks.append(asyncio.create_task(forward_with_limit(id, after, before, interval)))
         else:
             for id in self.config.channel_list:
-                await self.forward_history_messages_by_channel(id, after, before, rate)
+                tasks.append(asyncio.create_task(forward_with_limit(id, after, before, interval)))
+        await asyncio.gather(*tasks)
         logger.info(f"All history messages forwarded.")
         if self.forward_history_only:
             await self.close()
