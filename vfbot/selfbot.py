@@ -94,8 +94,6 @@ class Selfbot(selfcord.Client):
         master_webhook_result = await self.send_webhook_message(msg)
         if not master_webhook_result:
             return False
-        elif master_webhook_result == (1,1):
-            return True
         if msg.dc_jump_links and master_webhook_result:
             master_channel_id, master_webhook = master_webhook_result
             master_guild_id = self.get_guild_id_from_channel_id(master_channel_id)
@@ -162,7 +160,6 @@ class Selfbot(selfcord.Client):
         :class:`tuple[int, DiscordWebhook]` | :class:`None`
             The channel ID and the webhook object if the message is sent successfully, otherwise :class:`None`.
         """
-        return 1, 1
         for webhook_config in message.webhook_configs:
             webhook = DiscordWebhook(url=webhook_config.url)
             webhook.content = message.content
