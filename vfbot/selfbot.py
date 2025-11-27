@@ -216,14 +216,13 @@ class Selfbot(selfcord.Client):
             webhook.avatar_url = message.raw_msg_carrier.author.display_avatar.url
         webhook.embeds = message.embeds
         res = webhook.execute()
-        logger.debug(f"Sent webhook message. Status code: {res.status_code}.")
         if res.status_code == 429:
             retry_after = json.loads(res.content).get('retry_after')
             if retry_after:
                 await asyncio.sleep(retry_after)
                 return await self.send_webhook_message(message, webhook_config)
         elif res.status_code != 200:
-            logger.warning(f"Unknown webhook status code: {res.status_code}")
+            logger.warning(f"Sent webhook message but unknown status code: {res.status_code}")
 
         try:
             content = json.loads(res.content)
@@ -234,6 +233,8 @@ class Selfbot(selfcord.Client):
         if not channel_id:
             logger.error(f"Webhook response content does not contain a channel ID.")
             return None, None
+        channel = self.get_channel(channel_id)
+        logger.info(f"Sent webhook message to {channel.name if channel else channel_id}. Status code: {res.status_code}.")
         return int(channel_id), webhook
     
     async def forward_history_messages_by_channel(self, from_channel_id: int, after: datetime, before: datetime = None, interval: float = 0.1):
