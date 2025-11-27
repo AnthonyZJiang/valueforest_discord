@@ -229,11 +229,11 @@ class Selfbot(selfcord.Client):
         except json.JSONDecodeError:
             logger.error(f"Failed to parse webhook response content: {res.content}")
             return None, None
-        channel_id = content.get('channel_id')
-        if not channel_id:
+        channel_id= content.get('channel_id')
+        if not channel_id or not channel_id.isdigit():
             logger.error(f"Webhook response content does not contain a channel ID.")
             return None, None
-        channel = self.get_channel(channel_id)
+        channel = self.get_channel(int(channel_id))
         logger.info(f"Sent webhook message to {channel.name if channel else channel_id}. Status code: {res.status_code}.")
         return int(channel_id), webhook
     
