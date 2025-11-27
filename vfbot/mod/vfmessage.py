@@ -50,9 +50,6 @@ class VFMessage:
         
     @classmethod
     def from_dc_msg(cls, dc_msg: discord.Message, config: dict) -> Self:
-        def get_author_name(author_name: str):
-                return author_name
-        
         def get_embeds(embeds: list[discord.Embed]):
             embeds_list = []
             for embed in embeds:
@@ -78,7 +75,7 @@ class VFMessage:
         msg = cls(content.strip(), 
                   config, 
                   raw_msg_carrier = dc_msg, 
-                  author_name = get_author_name(author_name),
+                  author_name = author_name,
                   credit = dc_msg.jump_url, 
                   embeds = get_embeds(dc_msg.embeds),
                   reference_msg = dc_msg.reference.resolved if dc_msg.reference else None,
@@ -135,8 +132,8 @@ class VFMessage:
             _content = f"{time_str}\n{_content}"
         return _content.strip()
     
-    def search_and_replace_content(self, search_content: str, replace_content: str) -> str:
-        self._content = self._content.replace(search_content, replace_content)
+    def find_and_replace(self, find_content: str, replace_content: str) -> str:
+        self._content = self._content.replace(find_content, replace_content)
     
     def stylize(self) -> str:
         style = self.config.get('style', None)

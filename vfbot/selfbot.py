@@ -77,7 +77,8 @@ class Selfbot(selfcord.Client):
             is_author_valid, author_config = self.check_author(message, c)
             if not is_author_valid:
                 continue
-            c['author'] = author_config
+            if author_config:
+                c['author'] = author_config
             sent = await self.construct_and_send_message(message, c)
         return sent
     
