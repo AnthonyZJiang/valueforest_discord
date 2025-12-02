@@ -30,7 +30,7 @@ import os
 from vfbot import selfbot, setup_logging, VFConfig
 
 dotenv.load_dotenv()
-stream_handler, _ = setup_logging(os.path.join('.log', 'selbot.log'))
+stream_handler, _ = setup_logging(os.path.join('.log', 'selfbot.log'))
 
 config = VFConfig('config.json')
 bot = selfbot.Selfbot(config)
@@ -45,7 +45,7 @@ import os
 from vfbot import selfbot, setup_logging, VFConfig
 
 dotenv.load_dotenv()
-stream_handler, _ = setup_logging(os.path.join('.log', 'selbot.log'))
+stream_handler, _ = setup_logging(os.path.join('.log', 'selfbot.log'))
 
 config = VFConfig('config.json')
 bot = selfbot.Selfbot(config)
