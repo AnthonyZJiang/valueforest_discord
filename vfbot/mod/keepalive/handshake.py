@@ -68,6 +68,7 @@ class HandshakeInitiator:
 class HandshakeResponder:
 
     def __init__(self, client: Selfbot):
+        self.ready = False
         self._client = client
         self.name = client.config.keepalive.handshake_name
         self.initiator_name = self.name + " Initiator"
@@ -79,8 +80,11 @@ class HandshakeResponder:
         if not self.webhook_url:
             raise ValueError("No webhook URL provided")
         self.webhook = DiscordWebhook(url=self.webhook_url)
-        self.webhook.username = client.user.display_name
-        self.webhook.avatar_url = client.user.display_avatar.url
+        
+    def set_ready(self) -> None:
+        self.webhook.username = self._client.user.display_name
+        self.webhook.avatar_url = self._client.user.display_avatar.url
+        self.ready = True
 
     def is_valid_handshake_message(self, message: discord.Message) -> bool:
         return message.channel.id == self.channel_id and message.content.startswith(
@@ -88,6 +92,8 @@ class HandshakeResponder:
         )
 
     def respond(self, message: discord.Message) -> None:
+        if not self.ready:
+            return
         if message.created_at - datetime.now(timezone.utc) > timedelta(seconds=self.interval):
             return
         ts = message.content.split("TS ")[1].strip()

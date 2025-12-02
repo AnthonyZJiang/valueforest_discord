@@ -36,7 +36,7 @@ class Selfbot(selfcord.Client):
         self.forward_history_before = None
         self.forward_history_only = False
         self.forward_history_from_channels: list[str | int] = []
-        self._handshake_responder = None
+        self._handshake_responder = HandshakeResponder(client=self)
 
         if config.llm_config:
             self._llm_analyser = LLMAnalyser(config.llm_config)
@@ -50,7 +50,7 @@ class Selfbot(selfcord.Client):
             " , forward history only" if self.forward_history_only else "",
         )
         print("Selfbot ready")
-        self._handshake_responder = HandshakeResponder(client=self)
+        self._handshake_responder.set_ready()
         if self.forward_history_since:
             if isinstance(self.forward_history_since, str):
                 self.forward_history_since = datetime.fromisoformat(self.forward_history_since)
@@ -67,9 +67,13 @@ class Selfbot(selfcord.Client):
             return False
 
         # handle handshake messages
-        if not self.forward_history_only and self._handshake_responder.is_valid_handshake_message(
-            message
+        if (
+            not self.forward_history_only
+            and self._handshake_responder is not None
+            and self._handshake_responder.is_valid_handshake_message(message)
         ):
+            while not self._handshake_responder.ready:
+                await asyncio.sleep(0.1)
             self._handshake_responder.respond(message)
             return False
 
@@ -183,6 +187,7 @@ class Selfbot(selfcord.Client):
                 msg.raw_msg_carrier.id,
                 self.get_channel(sent_msg_channel_id).name,
             )
+
     async def _unpackage_jump_links(
         self, jump_links: list[tuple(str, int, int)]
     ) -> list[tuple(str, str, str)]:
@@ -259,8 +264,11 @@ class Selfbot(selfcord.Client):
             if matches:
                 matched_message = similar_messages[channel_names.index(matches[0])]
                 results.append((url, matched_message.channel.id, matched_message.id))
-                logger.debug("Search returned a match for content %s in server %s in %s.",
-                             search_content, guild.name, matched_message.channel.name
+                logger.debug(
+                    "Search returned a match for content %s in server %s in %s.",
+                    search_content,
+                    guild.name,
+                    matched_message.channel.name,
                 )
             else:
                 logger.warning(
