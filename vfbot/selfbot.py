@@ -154,7 +154,7 @@ class Selfbot(selfcord.Client):
             if not results[0] and not results[1]:
                 return False
             if msg.dc_jump_links:
-                self._handle_jump_links(msg, results)
+                await self._handle_jump_links(msg, results)
 
         if self._llm_analyser and message.channel.id in self.config.llm_channel:
             self._llm_analyser.analyse(msg)
