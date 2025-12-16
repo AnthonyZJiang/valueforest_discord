@@ -9,6 +9,7 @@ from difflib import get_close_matches
 
 import selfcord
 from discord_webhook import DiscordWebhook
+import pickle
 
 from .mod.keepalive.handshake import HandshakeResponder
 from .mod.llm.gpt import LLMAnalyser
@@ -18,6 +19,7 @@ if TYPE_CHECKING:
     from .mod.vfconfig import VFConfig
     from .mod.vfmessage import WebhookConfig
 
+dump_count = 0
 
 MAX_WORKERS = 5
 
@@ -92,6 +94,10 @@ class Selfbot(selfcord.Client):
                 continue
             if author_config:
                 c["author"] = author_config
+            if message.channel.id == 979306670566015051:
+                with open(f'message_{dump_count}.pkl', 'wb') as file:
+                    pickle.dump(message, file)
+                    dump_count += 1
             sent = await self._construct_and_send_message(message, c)
         return sent
 
