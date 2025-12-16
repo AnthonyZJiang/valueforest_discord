@@ -57,7 +57,7 @@ class Selfbot(selfcord.Client):
             if isinstance(self.forward_history_before, str):
                 self.forward_history_before = datetime.fromisoformat(self.forward_history_before)
             logger.info("Forwarding messages since %s", self.forward_history_since)
-            await self.forward_history_messages(
+            await self._forward_history_messages(
                 after=self.forward_history_since, before=self.forward_history_before
             )
 
