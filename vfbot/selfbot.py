@@ -19,7 +19,6 @@ if TYPE_CHECKING:
     from .mod.vfconfig import VFConfig
     from .mod.vfmessage import WebhookConfig
 
-dump_count = 0
 
 MAX_WORKERS = 5
 
@@ -31,6 +30,8 @@ class Selfbot(selfcord.Client):
 
     def __init__(self, config: VFConfig):
         super().__init__(max_messages=100)
+    
+        self.dump_count = 0
         self.config = config
         self._channel_configs = config.repost_settings
 
@@ -95,9 +96,9 @@ class Selfbot(selfcord.Client):
             if author_config:
                 c["author"] = author_config
             if message.channel.id == 979306670566015051:
-                with open(f'message_{dump_count}.pkl', 'wb') as file:
+                with open(f'message_{self.dump_count}.pkl', 'wb') as file:
                     pickle.dump(message, file)
-                    dump_count += 1
+                    self.dump_count += 1
             sent = await self._construct_and_send_message(message, c)
         return sent
 
