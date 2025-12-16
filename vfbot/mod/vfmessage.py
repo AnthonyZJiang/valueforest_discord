@@ -61,8 +61,9 @@ class VFMessage:
         def get_embeds(embeds: list[discord.Embed]):
             embeds_list = []
             for embed in embeds:
-                if not embed.url:
-                    embeds_list.append(VFMessage.selfcord_embed_to_dict(embed))
+                if embed.url and embed.url.startswith("https://discord.com"):
+                    continue
+                embeds_list.append(VFMessage.selfcord_embed_to_dict(embed))
             return embeds_list
 
         def get_dc_jump_links(content: str) -> list[int]:
