@@ -177,20 +177,22 @@ class Selfbot(selfcord.Client):
         sent_msg_guild_id = self._get_guild_id_from_channel_id(sent_msg_channel_id)
         guild_link = f"https://discord.com/channels/{sent_msg_guild_id}"
         details = await self._unpackage_jump_links(msg.dc_jump_links)
-        matches = await self._search_linked_message(details, sent_msg_guild_id)
-        if matches:
-            for match_details in matches:
-                msg.replace_content(
-                    match_details.url,
-                    f"{guild_link}/{match_details.channel_id}/{match_details.message_id}"
-                )
-            sent_msg_webhook.content = msg.content
-            sent_msg_webhook.edit()
-            logger.info(
-                "Replaced jump links in message %s sent to %s",
-                msg.raw_msg_carrier.id,
-                self.get_channel(sent_msg_channel_id).name,
+        matches = await self._search_linked_message(details, sent_msg_guild_id, msg.raw_msg_carrier.id)
+        if not matches:
+            return
+        content = msg.content
+        for match_details in matches:
+            content = content.replace(
+                match_details.url,
+                f"{guild_link}/{match_details.channel_id}/{match_details.message_id}"
             )
+        sent_msg_webhook.content = content
+        sent_msg_webhook.edit()
+        logger.info(
+            "Replaced jump links in message %s sent to %s",
+            msg.raw_msg_carrier.id,
+            self.get_channel(sent_msg_channel_id).name,
+        )
 
     async def _unpackage_jump_links(
         self, jump_links: list[JumpLinkDetails]
@@ -224,7 +226,10 @@ class Selfbot(selfcord.Client):
                 )
                 continue
             # find the first 100 characters of the message content, cut at nearest space
-            content = " ".join(linked_message.content[:100].split(" ")[:-1])
+            if len(linked_message.content) > 100:
+                content = " ".join(linked_message.content[:100].split(" ")[:-1])
+            else:
+                content = linked_message.content
             # remove any trailing numbers and \n
             content = re.sub(r"\d+$|\n", "", content)
             details.append(
@@ -237,7 +242,7 @@ class Selfbot(selfcord.Client):
         return details
 
     async def _search_linked_message(
-        self, details: list[SearchRequestDetails], sent_msg_guild_id: int
+        self, details: list[SearchRequestDetails], sent_msg_guild_id: int, sent_msg_id: int
     ) -> list[JumpLinkDetails]:
         """Search for linked messages in the master guild.
 
@@ -255,7 +260,9 @@ class Selfbot(selfcord.Client):
             A list of the search request details.
         sent_msg_guild_id: :class:`int`
             The ID of the discord server to search for the linked message contents.
-
+        sent_msg_id: :class:`int`
+            The ID of the message that contains the jump links.
+            
         Returns:
         --------
         :class:`list[JumpLinkDetails]`
@@ -265,12 +272,15 @@ class Selfbot(selfcord.Client):
         results = []
         for detail in details:
             guild = self.get_guild(sent_msg_guild_id)
-            search_results = guild.search(content=detail.content, limit=5, oldest_first=True)
+            search_results = guild.search(content=detail.content, limit=5, oldest_first=False)
             try:
                 similar_messages = [message async for message in search_results]
             except StopAsyncIteration:
                 logger.error('Search returns 0 results for: "%s"', detail.content)
                 continue
+            if len(similar_messages) > 1:
+                if similar_messages[0].id == sent_msg_id:
+                    similar_messages.pop(0)
             channel_names = [message.channel.name for message in similar_messages]
             matches = get_close_matches(detail.channel_name, channel_names, n=1)
             if matches:
