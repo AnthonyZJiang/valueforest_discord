@@ -179,10 +179,10 @@ class Selfbot(selfcord.Client):
         details = await self._unpackage_jump_links(msg.dc_jump_links)
         matches = await self._search_linked_message(details, sent_msg_guild_id)
         if matches:
-            for jump_link_url, matched_channel_id, matched_message_id in matches:
+            for match_details in matches:
                 msg.replace_content(
-                    jump_link_url,
-                    f"{guild_link}/{matched_channel_id}/{matched_message_id}",
+                    match_details.url,
+                    f"{guild_link}/{match_details.channel_id}/{match_details.message_id}"
                 )
             sent_msg_webhook.content = msg.content
             sent_msg_webhook.edit()
@@ -238,7 +238,7 @@ class Selfbot(selfcord.Client):
 
     async def _search_linked_message(
         self, details: list[SearchRequestDetails], sent_msg_guild_id: int
-    ) -> list[tuple[str, int, int]]:
+    ) -> list[JumpLinkDetails]:
         """Search for linked messages in the master guild.
 
         Some posts contains links to previous messages, and the forward content will also contain
