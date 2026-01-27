@@ -166,16 +166,13 @@ class VFMessage:
         # split content into chunks of MESSAGE_CHAR_LIMIT characters at spaces
         content = self.content
         while len(content) > MESSAGE_CHAR_LIMIT:
-            space_index = content.rfind(" ", 0, MESSAGE_CHAR_LIMIT)
+            space_index = content.rfind(" ", 0, MESSAGE_CHAR_LIMIT - 2)
             if space_index == -1:
                 space_index = MESSAGE_CHAR_LIMIT
-            contents.append(content[:space_index])
-            content = content[space_index + 1 :]
+            contents.append(content[:space_index] + " …")
+            content = "… " + content[space_index + 1 :]
         contents.append(content)
         return contents
-
-    def replace_content(self, old_content: str, new_content: str) -> str:
-        return self.content.replace(old_content, new_content)
 
     def stylize(self) -> str:
         style = self.config.get("style", None)

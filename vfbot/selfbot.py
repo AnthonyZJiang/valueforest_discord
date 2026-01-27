@@ -154,11 +154,11 @@ class Selfbot(selfcord.Client):
         )
         msg = VFMessage.from_dc_msg(message, config)
         for webhook_config in msg.webhook_configs:
-            results = await self._send_webhook_message(msg, webhook_config)
-            if not results[0] and not results[1]:
+            results = await self._send_message_via_webhook(msg, webhook_config)
+            if not results[0][0] and not results[0][1]:
                 return False
-            if msg.dc_jump_links:
-                await self._handle_jump_links(msg, results)
+            if len(results) == 1 and msg.dc_jump_links:
+                await self._handle_jump_links(msg, results[0])
 
         if self._llm_analyser and message.channel.id in self.config.llm_channel:
             self._llm_analyser.analyse(msg)
@@ -177,14 +177,16 @@ class Selfbot(selfcord.Client):
         sent_msg_guild_id = self._get_guild_id_from_channel_id(sent_msg_channel_id)
         guild_link = f"https://discord.com/channels/{sent_msg_guild_id}"
         details = await self._unpackage_jump_links(msg.dc_jump_links)
-        matches = await self._search_linked_message(details, sent_msg_guild_id, msg.raw_msg_carrier.id)
+        matches = await self._search_linked_message(
+            details, sent_msg_guild_id, msg.raw_msg_carrier.id
+        )
         if not matches:
             return
         content = msg.content
         for match_details in matches:
             content = content.replace(
                 match_details.url,
-                f"{guild_link}/{match_details.channel_id}/{match_details.message_id}"
+                f"{guild_link}/{match_details.channel_id}/{match_details.message_id}",
             )
         sent_msg_webhook.content = content
         sent_msg_webhook.edit()
@@ -262,7 +264,7 @@ class Selfbot(selfcord.Client):
             The ID of the discord server to search for the linked message contents.
         sent_msg_id: :class:`int`
             The ID of the message that contains the jump links.
-            
+
         Returns:
         --------
         :class:`list[JumpLinkDetails]`
@@ -306,9 +308,9 @@ class Selfbot(selfcord.Client):
                 )
         return results
 
-    async def _send_webhook_message(
+    async def _send_message_via_webhook(
         self, message: VFMessage, webhook_config: WebhookConfig
-    ) -> tuple[int | None, DiscordWebhook | None]:
+    ) -> list[tuple[int | None, DiscordWebhook | None]]:
         """Send a webhook message to the webhook URL.
 
         Parameters:
@@ -318,25 +320,35 @@ class Selfbot(selfcord.Client):
 
         Returns:
         --------
-        :class:`tuple[int, DiscordWebhook]` | :class:`None`
+        :class:`list[tuple[int, DiscordWebhook]]` | :class:`None`
             The channel ID and the webhook object if the message is sent successfully, otherwise
             :class:`None`.
         """
         webhook = DiscordWebhook(url=webhook_config.url)
-        webhook.content = message.content
         if (
             isinstance(message.raw_msg_carrier, selfcord.Message)
             and webhook_config.use_dynamic_avatar_name
         ):
             webhook.username = message.webhook_author_name
             webhook.avatar_url = message.raw_msg_carrier.author.display_avatar.url
-        webhook.embeds = message.embeds
+        contents = message.get_contents()
+        results = []
+        for i, content in enumerate(contents):
+            webhook.content = content
+            if i == len(contents) - 1:
+                webhook.embeds = message.embeds
+            results.append(await self._execute_webhook(webhook))
+        return results
+
+    async def _execute_webhook(
+        self, webhook: DiscordWebhook
+    ) -> tuple[int | None, DiscordWebhook | None]:
         res = webhook.execute()
         if res.status_code == 429:
             retry_after = json.loads(res.content).get("retry_after")
             if retry_after:
                 await asyncio.sleep(retry_after)
-                return await self._send_webhook_message(message, webhook_config)
+                return await self._execute_webhook(webhook)
         elif res.status_code != 200:
             logger.warning("Sent webhook message but unknown status code: %s", res.status_code)
 
