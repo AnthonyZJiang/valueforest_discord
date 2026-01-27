@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 import re
 from datetime import datetime, timedelta, timezone
+from collections import namedtuple
 
 import selfcord
 
@@ -9,11 +10,11 @@ if TYPE_CHECKING:
     import discord
     from typing_extensions import Self
 
-ASHLEY_ID = 1313007325224898580
-ANGELA_ID = 1313008328229785640
-ENRICH_ID = 1313010231885955112
-ANTHONY_ID = 185020620310839296
-CHAR_LIMIT = 100
+REFERENCE_CHAR_LIMIT = 100
+MESSAGE_CHAR_LIMIT = 2000
+
+
+JumpLinkDetails = namedtuple("JumpLinkDetails", ["url", "channel_id", "message_id"])
 
 
 class WebhookConfig:
@@ -50,7 +51,7 @@ class VFMessage:
         self.credit: str = kwargs.get("credit", None)
         self.embeds: list[dict] = kwargs.get("embeds", [])
         self.reference_msg: discord.Message = kwargs.get("reference_msg", None)
-        self.dc_jump_links: list[tuple[str, int, int]] = kwargs.get(
+        self.dc_jump_links: list[JumpLinkDetails] = kwargs.get(
             "dc_jump_links", []
         )  # url, channel id and message id
 
@@ -70,7 +71,14 @@ class VFMessage:
             # url example: "https://discord.com/channels/1320356811441700954/1332897444530487358/1442530901266268223"
             matches = re.findall(r"(https://discord\.com/channels/(\d+)/(\d+)/(\d+))", content)
             if matches:
-                return [(match[0], int(match[2]), int(match[3])) for match in matches]
+                return [
+                    JumpLinkDetails(
+                        url=match[0],
+                        channel_id=int(match[2]),
+                        message_id=int(match[3]),
+                    )
+                    for match in matches
+                ]
             return []
 
         content = dc_msg.content
@@ -128,8 +136,8 @@ class VFMessage:
                 # remove @, url, and line breaks
                 referenced_content = re.sub(r"@|https?:|[\n\r]+", "", referenced_content)
                 # limit the length of referenced_content to 20 characters
-                if len(referenced_content) > CHAR_LIMIT:
-                    referenced_content = referenced_content[:CHAR_LIMIT] + "..."
+                if len(referenced_content) > REFERENCE_CHAR_LIMIT:
+                    referenced_content = referenced_content[:REFERENCE_CHAR_LIMIT] + "..."
                 if referenced_content:
                     resolved_content = f"[{referenced_content}]({self.reference_msg.jump_url})"
                 else:
@@ -150,6 +158,21 @@ class VFMessage:
         if time_str := self.get_date_str():
             _content = f"{time_str}\n{_content}"
         return _content.strip()
+
+    def get_contents(self) -> list[str]:
+        if len(self.content) < MESSAGE_CHAR_LIMIT:
+            return [self.content]
+        contents = []
+        # split content into chunks of MESSAGE_CHAR_LIMIT characters at spaces
+        content = self.content
+        while len(content) > MESSAGE_CHAR_LIMIT:
+            space_index = content.rfind(" ", 0, MESSAGE_CHAR_LIMIT)
+            if space_index == -1:
+                space_index = MESSAGE_CHAR_LIMIT
+            contents.append(content[:space_index])
+            content = content[space_index + 1 :]
+        contents.append(content)
+        return contents
 
     def replace_content(self, old_content: str, new_content: str) -> str:
         return self.content.replace(old_content, new_content)

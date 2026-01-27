@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import json
 import re
 import asyncio
+from collections import namedtuple
 from difflib import get_close_matches
 
 import selfcord
@@ -12,7 +13,7 @@ from discord_webhook import DiscordWebhook
 
 from .mod.keepalive.handshake import HandshakeResponder
 from .mod.llm.gpt import LLMAnalyser
-from .mod.vfmessage import VFMessage
+from .mod.vfmessage import VFMessage, JumpLinkDetails
 
 if TYPE_CHECKING:
     from .mod.vfconfig import VFConfig
@@ -23,6 +24,9 @@ MAX_WORKERS = 5
 
 logger = logging.getLogger(__name__)
 sem = asyncio.Semaphore(MAX_WORKERS)
+
+
+SearchRequestDetails = namedtuple("SearchRequestDetails", ["url", "channel_name", "content"])
 
 
 class Selfbot(selfcord.Client):
@@ -176,7 +180,7 @@ class Selfbot(selfcord.Client):
         matches = await self._search_linked_message(details, sent_msg_guild_id)
         if matches:
             for jump_link_url, matched_channel_id, matched_message_id in matches:
-                msg.find_and_replace(
+                msg.replace_content(
                     jump_link_url,
                     f"{guild_link}/{matched_channel_id}/{matched_message_id}",
                 )
@@ -189,43 +193,51 @@ class Selfbot(selfcord.Client):
             )
 
     async def _unpackage_jump_links(
-        self, jump_links: list[tuple(str, int, int)]
-    ) -> list[tuple(str, str, str)]:
+        self, jump_links: list[JumpLinkDetails]
+    ) -> list[SearchRequestDetails]:
         """Get jump link details
 
         Parameters
         ----------
-        jump_links: :class: `list[tuple(str, str, str)]`
-            A list of packaged jump links: (url, channel_id, message_id)
+        jump_links: :class: `list[JumpLinkDetails]`
+            A list of packaged jump links
 
         Returns
         -------
-        :class: `list[tuple(str, str, str)]`
-            The list of details of the jump links: (jump_link, channel_name, content)
+        :class: `list[SearchRequestDetails]`
+            The list of details of the search requests
         """
         details = []
-        for url, channel_id, message_id in jump_links:
-            linked_channel = self.get_channel(channel_id)
+        for link in jump_links:
+            linked_channel = self.get_channel(link.channel_id)
             if not linked_channel:
                 logger.error(
-                    "Try to search for a linked message in a non-existent channel %s.", channel_id
+                    "Try to search for a linked message in a non-existent channel %s.",
+                    link.channel_id,
                 )
                 continue
-            linked_message = await linked_channel.fetch_message(message_id)
+            linked_message = await linked_channel.fetch_message(link.message_id)
             if not linked_message:
                 logger.error(
-                    "Try to search for a linked message in a non-existent message %s.", message_id
+                    "Try to search for a linked message in a non-existent message %s.",
+                    link.message_id,
                 )
                 continue
             # find the first 100 characters of the message content, cut at nearest space
             content = " ".join(linked_message.content[:100].split(" ")[:-1])
             # remove any trailing numbers and \n
             content = re.sub(r"\d+$|\n", "", content)
-            details.append((url, linked_channel.name, content))
+            details.append(
+                SearchRequestDetails(
+                    url=link.url,
+                    channel_name=linked_channel.name,
+                    content=content,
+                )
+            )
         return details
 
     async def _search_linked_message(
-        self, details: list[tuple[str, str, str]], sent_msg_guild_id: int
+        self, details: list[SearchRequestDetails], sent_msg_guild_id: int
     ) -> list[tuple[str, int, int]]:
         """Search for linked messages in the master guild.
 
@@ -239,41 +251,47 @@ class Selfbot(selfcord.Client):
 
         Parameters:
         -----------
-        jump_links: :class:`list[tuple[str, int, int]]`
-            A list of the jump link tuples (url, channel_id, message_id).
+        details: :class:`list[SearchRequestDetails]`
+            A list of the search request details.
         sent_msg_guild_id: :class:`int`
             The ID of the discord server to search for the linked message contents.
 
         Returns:
         --------
-        :class:`list[tuple[str, int, int]]`
+        :class:`list[JumpLinkDetails]`
             The list of original jump link url, matched_channel ID and matched_message ID of the
             linked messages.
         """
         results = []
-        for url, search_content, linked_channel_name in details:
+        for detail in details:
             guild = self.get_guild(sent_msg_guild_id)
-            search_results = guild.search(content=search_content, limit=5, oldest_first=True)
+            search_results = guild.search(content=detail.content, limit=5, oldest_first=True)
             try:
                 similar_messages = [message async for message in search_results]
             except StopAsyncIteration:
-                logger.error('Search returns 0 results for: "%s"', search_content)
+                logger.error('Search returns 0 results for: "%s"', detail.content)
                 continue
             channel_names = [message.channel.name for message in similar_messages]
-            matches = get_close_matches(linked_channel_name, channel_names, n=1)
+            matches = get_close_matches(detail.channel_name, channel_names, n=1)
             if matches:
                 matched_message = similar_messages[channel_names.index(matches[0])]
-                results.append((url, matched_message.channel.id, matched_message.id))
+                results.append(
+                    JumpLinkDetails(
+                        url=detail.url,
+                        channel_id=matched_message.channel.id,
+                        message_id=matched_message.id,
+                    )
+                )
                 logger.debug(
                     "Search returned a match for content %s in server %s in %s.",
-                    search_content,
+                    detail.content,
                     guild.name,
                     matched_message.channel.name,
                 )
             else:
                 logger.warning(
                     "Search returned 0 result for content %s in server %s.",
-                    search_content,
+                    detail.content,
                     guild.name,
                 )
         return results
