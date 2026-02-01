@@ -124,6 +124,11 @@ class VFMessage:
     @property
     def content(self) -> str:
         _content = self.stylize()
+        if self.raw_msg_carrier.channel.id == 856197997767163904:
+            # replace <br/> with \n
+            _content = _content.replace("<br/>", "\n")
+            # replace <span ...>$1</span> with $1
+            _content = re.sub(r"<span[^>]*>(.*?)</span>", r"\1", _content)
         if self.show_author_name:
             if self.is_emoji(self.author_name):
                 _content = f"{self.author_name} {_content}"
