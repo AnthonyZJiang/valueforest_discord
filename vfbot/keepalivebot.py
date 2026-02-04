@@ -1,6 +1,5 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
-import asyncio
 import logging
 
 import discord
@@ -13,12 +12,9 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class KeepAliveBot(discord.Client):
+class KeepAliveBot:
     def __init__(self, config: VFConfig):
         self.config = config
-        intents = discord.Intents.default()
-        intents.message_content = True
-        super().__init__(intents=intents, max_messages=100)
 
         self._cached_channels = {}
 
@@ -34,11 +30,7 @@ class KeepAliveBot(discord.Client):
             self._cached_channels[channel_id] = self.get_channel(channel_id)
         return self._cached_channels[channel_id]
 
-    async def on_ready(self):
-        logger.info("DC bot logged on as %s", self.user)
-        self._selfbot_monitor_task = asyncio.create_task(self.keepalive.run())
-
-    async def on_message(self, message: discord.Message):
+    async def on_message_keepalive(self, message: discord.Message):
         if message.author.id == self.user.id:
             return
         await self.keepalive.check_handshake(message)
