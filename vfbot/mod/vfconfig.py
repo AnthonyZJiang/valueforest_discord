@@ -211,5 +211,5 @@ class VFConfig:
         self.save()
 
     def save(self):
-        with open(self.config_path, "w") as f:
+        with open(self.config_path, "w", encoding="utf-8") as f:
             json.dump(self._config, f, indent=4)
