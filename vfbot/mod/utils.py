@@ -25,8 +25,8 @@ def setup_logging(log_file: str = None) -> logging.Handler:
     if not os.path.exists(os.path.dirname(log_file)):
         os.makedirs(os.path.dirname(log_file))
         
-    file_handler_info = TimedRotatingFileHandler(log_file, when='D', interval=1, backupCount=7)
-    file_handler_info.setLevel(logging.INFO)
+    file_handler_info = TimedRotatingFileHandler(log_file.rstrip('.log') + '_warn.log', when='D', interval=1, backupCount=7)
+    file_handler_info.setLevel(logging.WARNING)
     f_format = logging.Formatter('%(asctime)s %(levelname)-8s %(name)s::%(module)s %(message)s', '%Y-%m-%d %H:%M:%S')
     file_handler_info.setFormatter(f_format)
     
