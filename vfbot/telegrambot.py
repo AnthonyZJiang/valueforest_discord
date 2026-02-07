@@ -49,8 +49,7 @@ class TeleCordBot:
         if self.channel_forward[message.channel.id].get("show_channel_name"):
             author = f"#{message.channel.name} {author}"
 
-        # Add Discord message URL as clickable link on author name
-        author_html = f'<a href="{html.escape(message.jump_url)}">{html.escape(author)}</a>'
+        author_html = html.escape(author)
 
         # Get image URLs from attachments
         image_urls = [
