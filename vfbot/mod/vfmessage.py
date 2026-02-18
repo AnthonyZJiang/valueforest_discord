@@ -129,6 +129,8 @@ class VFMessage:
             _content = _content.replace("<br/>", "\n")
             # replace <span ...>$1</span> with $1
             _content = re.sub(r"<span[^>]*>(.*?)</span>", r"\1", _content)
+            # replace <b>$1</b> with **$1**
+            _content = re.sub(r"<b>(.*?)</b>", r"**\1**", _content)
         if self.show_author_name:
             if self.is_emoji(self.author_name):
                 _content = f"{self.author_name} {_content}"
