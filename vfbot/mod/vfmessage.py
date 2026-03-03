@@ -151,7 +151,7 @@ class VFMessage:
                     resolved_content = f"[Go to message]({self.reference_msg.jump_url})"
                 _content = f"-# Reply to: {resolved_content}\n" + _content
             except AttributeError:
-                _content = f"-# Reply to a deleted message\n" + _content
+                _content = "-# Reply to a deleted message\n" + _content
         if self.raw_msg_carrier.message_snapshots:
             snapshot = self.raw_msg_carrier.message_snapshots[0]
             snapshot_content = "\n> ".join(snapshot.content.strip().split("\n"))
