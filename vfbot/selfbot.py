@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
 import logging
 from datetime import datetime, timedelta
 import json
@@ -14,6 +14,7 @@ from discord_webhook import DiscordWebhook
 from .mod.keepalive.handshake import HandshakeResponder
 from .mod.llm.gpt import LLMAnalyser
 from .mod.vfmessage import VFMessage, JumpLinkDetails
+from .mod.utils import FifoDict
 
 if TYPE_CHECKING:
     from .mod.vfconfig import VFConfig
@@ -29,6 +30,12 @@ sem = asyncio.Semaphore(MAX_WORKERS)
 SearchRequestDetails = namedtuple("SearchRequestDetails", ["url", "channel_name", "content"])
 
 
+SentWebhookDetails = NamedTuple("SentWebhookDetails", [("url", str), ("ids", list[int])])
+SentWebhookResults = NamedTuple(
+    "SentWebhookResults", [("channel_id", int), ("webhook_obj", DiscordWebhook)]
+)
+
+
 class Selfbot(selfcord.Client):
 
     def __init__(self, config: VFConfig):
@@ -41,6 +48,7 @@ class Selfbot(selfcord.Client):
         self.forward_history_only = False
         self.forward_history_from_channels: list[str | int] = []
         self._handshake_responder = HandshakeResponder(client=self)
+        self._sent_message_queue = FifoDict[int, list[SentWebhookDetails]](maxsize=1000)
 
         if config.llm_config:
             self._llm_analyser = LLMAnalyser(config.llm_config)
@@ -99,6 +107,23 @@ class Selfbot(selfcord.Client):
             sent = await self._construct_and_send_message(message, c)
         return sent
 
+    async def on_message_edit(self, before: selfcord.Message, after: selfcord.Message) -> bool:
+        if before.id not in self._sent_message_queue:
+            return
+        
+        details: list[SentWebhookDetails] = self._sent_message_queue[before.id]
+        if not details:
+            return False
+
+        for detail in details:
+            webhook = DiscordWebhook(url=detail.url)
+            for id_ in detail.ids:
+                webhook.id = id_
+                webhook.delete()
+
+        await self.on_message(after, is_forward=False)
+        return True
+
     def _check_author(self, message: selfcord.Message, config: dict) -> tuple[bool, dict | None]:
         """Check if the message author is valid for the channel config.
 
@@ -155,8 +180,9 @@ class Selfbot(selfcord.Client):
         msg = VFMessage.from_dc_msg(message, config)
         for webhook_config in msg.webhook_configs:
             results = await self._send_message_via_webhook(msg, webhook_config)
-            if not results[0][0] and not results[0][1]:
+            if not results[0]:
                 return False
+            self._add_sent_message_details(message.id, results)
             if len(results) == 1 and msg.dc_jump_links:
                 await self._handle_jump_links(msg, results[0])
 
@@ -165,16 +191,20 @@ class Selfbot(selfcord.Client):
 
         return True
 
-    async def _handle_jump_links(
-        self, msg: VFMessage, webhook_results: tuple[int | None, DiscordWebhook | None]
-    ) -> None:
+    def _add_sent_message_details(self, message_id: int, results: list[SentWebhookResults]):
+        url = results[0].webhook_obj.url
+        ids = [result.webhook_obj.id for result in results]
+        if message_id not in self._sent_message_queue:
+            self._sent_message_queue[message_id] = []
+        self._sent_message_queue[message_id].append(SentWebhookDetails(url, ids))
+
+    async def _handle_jump_links(self, msg: VFMessage, webhook_results: SentWebhookResults) -> None:
         logger.debug(
             "Handling %d jump link(s) for message %s",
             len(msg.dc_jump_links),
             msg.raw_msg_carrier.id,
         )
-        sent_msg_channel_id, sent_msg_webhook = webhook_results
-        sent_msg_guild_id = self._get_guild_id_from_channel_id(sent_msg_channel_id)
+        sent_msg_guild_id = self._get_guild_id_from_channel_id(webhook_results.channel_id)
         guild_link = f"https://discord.com/channels/{sent_msg_guild_id}"
         details = await self._unpackage_jump_links(msg.dc_jump_links)
         matches = await self._search_linked_message(
@@ -188,12 +218,12 @@ class Selfbot(selfcord.Client):
                 match_details.url,
                 f"{guild_link}/{match_details.channel_id}/{match_details.message_id}",
             )
-        sent_msg_webhook.content = content
-        sent_msg_webhook.edit()
+        webhook_results.webhook_obj.content = content
+        webhook_results.webhook_obj.edit()
         logger.info(
             "Replaced jump links in message %s sent to %s",
             msg.raw_msg_carrier.id,
-            self.get_channel(sent_msg_channel_id).name,
+            self.get_channel(webhook_results.channel_id).name,
         )
 
     async def _unpackage_jump_links(
@@ -310,7 +340,7 @@ class Selfbot(selfcord.Client):
 
     async def _send_message_via_webhook(
         self, message: VFMessage, webhook_config: WebhookConfig
-    ) -> list[tuple[int | None, DiscordWebhook | None]]:
+    ) -> list[SentWebhookResults | None]:
         """Send a webhook message to the webhook URL.
 
         Parameters:
@@ -320,8 +350,8 @@ class Selfbot(selfcord.Client):
 
         Returns:
         --------
-        :class:`list[tuple[int, DiscordWebhook]]` | :class:`None`
-            The channel ID and the webhook object if the message is sent successfully, otherwise
+        :class:`list[SentWebhookResults | None]`
+            The list of SentWebhookResults if the message is sent successfully, otherwise
             :class:`None`.
         """
         webhook = DiscordWebhook(url=webhook_config.url)
@@ -340,9 +370,7 @@ class Selfbot(selfcord.Client):
             results.append(await self._execute_webhook(webhook))
         return results
 
-    async def _execute_webhook(
-        self, webhook: DiscordWebhook
-    ) -> tuple[int | None, DiscordWebhook | None]:
+    async def _execute_webhook(self, webhook: DiscordWebhook) -> SentWebhookResults | None:
         res = webhook.execute()
         if res.status_code == 429:
             retry_after = json.loads(res.content).get("retry_after")
@@ -356,18 +384,18 @@ class Selfbot(selfcord.Client):
             content = json.loads(res.content)
         except json.JSONDecodeError:
             logger.error("Failed to parse webhook response content: %s", res.content)
-            return None, None
+            return None
         channel_id = content.get("channel_id")
         if not channel_id or not channel_id.isdigit():
             logger.error("Webhook response content does not contain a channel ID.")
-            return None, None
+            return None
         channel = self.get_channel(int(channel_id))
         logger.info(
             "Sent webhook message to %s. Status code: %s.",
             channel.name if channel else channel_id,
             res.status_code,
         )
-        return int(channel_id), webhook
+        return SentWebhookResults(int(channel_id), webhook)
 
     async def _forward_history_messages_by_channel(
         self, from_channel_id: int, after: datetime, before: datetime = None, interval: float = 0.1

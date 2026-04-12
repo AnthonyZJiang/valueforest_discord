@@ -4,10 +4,11 @@ import os
 from logging.handlers import TimedRotatingFileHandler
 from discord.utils import _ColourFormatter
 
+
 def setup_logging(log_file: str = None) -> logging.Handler:
     level = logging.DEBUG
-    
-    library, _, _ = __name__.partition('.')
+
+    library, _, _ = __name__.partition(".")
     logger = logging.getLogger(library)
     logger.setLevel(level)
 
@@ -17,25 +18,52 @@ def setup_logging(log_file: str = None) -> logging.Handler:
     formatter = _ColourFormatter()
     stream_handler.setFormatter(formatter)
     logger.addHandler(stream_handler)
-    
+
     # File handler
     if not log_file:
         return stream_handler
-    
+
     if not os.path.exists(os.path.dirname(log_file)):
         os.makedirs(os.path.dirname(log_file))
-        
-    file_handler_info = TimedRotatingFileHandler(log_file.rstrip('.log') + '_warn.log', when='D', interval=1, backupCount=7)
+
+    file_handler_info = TimedRotatingFileHandler(
+        log_file.rstrip(".log") + "_warn.log", when="D", interval=1, backupCount=7
+    )
     file_handler_info.setLevel(logging.WARNING)
-    f_format = logging.Formatter('%(asctime)s %(levelname)-8s %(name)s::%(module)s %(message)s', '%Y-%m-%d %H:%M:%S')
+    f_format = logging.Formatter(
+        "%(asctime)s %(levelname)-8s %(name)s::%(module)s %(message)s", "%Y-%m-%d %H:%M:%S"
+    )
     file_handler_info.setFormatter(f_format)
-    
-    file_handler_debug = TimedRotatingFileHandler(log_file.rstrip('.log') + '_debug.log', when='D', interval=1, backupCount=7)
+
+    file_handler_debug = TimedRotatingFileHandler(
+        log_file.rstrip(".log") + "_debug.log", when="D", interval=1, backupCount=7
+    )
     file_handler_debug.setLevel(logging.DEBUG)
-    f_format = logging.Formatter('%(asctime)s %(levelname)-8s %(name)s::%(module)s %(message)s', '%Y-%m-%d %H:%M:%S')
+    f_format = logging.Formatter(
+        "%(asctime)s %(levelname)-8s %(name)s::%(module)s %(message)s", "%Y-%m-%d %H:%M:%S"
+    )
     file_handler_debug.setFormatter(f_format)
-    
+
     logger.addHandler(file_handler_info)
     logger.addHandler(file_handler_debug)
-    
+
     return stream_handler, library
+
+
+from collections import OrderedDict
+
+
+class FifoDict(OrderedDict):
+    def __init__(self, *args, **kwds):
+        self.maxsize = kwds.pop("maxsize", None)
+        OrderedDict.__init__(self, *args, **kwds)
+        self._check_maxsize()
+
+    def __setitem__(self, key, value):
+        OrderedDict.__setitem__(self, key, value)
+        self._check_maxsize()
+
+    def _check_maxsize(self):
+        if self.maxsize is not None:
+            while len(self) > self.maxsize:
+                self.popitem(last=False)
