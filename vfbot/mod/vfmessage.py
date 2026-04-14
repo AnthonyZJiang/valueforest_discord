@@ -55,7 +55,12 @@ class VFMessage:
             "dc_jump_links", []
         )  # url, channel id and message id
 
-        self.webhook_author_name: str = self.raw_msg_carrier.author.display_name
+        if self.raw_msg_carrier:
+            self.webhook_author_name: str = self.raw_msg_carrier.author.display_name
+            self.is_edited: bool = self.raw_msg_carrier.edited_at is not None
+        else:
+            self.webhook_author_name = None
+            self.is_edited = False
 
     @classmethod
     def from_dc_msg(cls, dc_msg: discord.Message, config: dict) -> Self:
@@ -162,7 +167,7 @@ class VFMessage:
             )
         if self.show_credit:
             _content = f"{_content} [ߺ ʟɪɴᴋ ߺ]({self.credit})"
-        if time_str := self.get_date_str():
+        if time_str := self.get_additional_date_str():
             _content = f"{time_str}\n{_content}"
         return _content.strip()
 
@@ -199,27 +204,34 @@ class VFMessage:
 
         return content
 
-    def get_date_str(self) -> str:
+    def get_additional_date_str(self) -> str:
         if not isinstance(self.raw_msg_carrier, selfcord.Message):
             return ""
+
+        edited_at = self.raw_msg_carrier.edited_at if self.raw_msg_carrier.edited_at else None
+        if edited_at:
+            time_ = edited_at
+        else:
+            time_ = self.raw_msg_carrier.created_at
+        time_ts = int(time_.timestamp())
+
         t_delta = datetime.now(timezone.utc) - self.raw_msg_carrier.created_at
         if t_delta > timedelta(seconds=5):
-            time_str = self.raw_msg_carrier.created_at.strftime(
-                "-# :small_blue_diamond: Posted at %Y-%m-%d %H:%M:%S UTC"
-            )
-            totalMinute, second = divmod(t_delta.seconds, 60)
-            hour, minute = divmod(totalMinute, 60)
-            if t_delta >= timedelta(days=1):
-                time_str = f"{time_str} ({t_delta.days} days {hour} hr {minute} min ago)"
-            elif t_delta > timedelta(hours=1):
-                time_str = f"{time_str} ({hour} hr {minute} min ago)"
-            elif t_delta > timedelta(minutes=1):
-                time_str = f"{time_str} ({minute} min ago)"
-            else:
-                time_str = f"{time_str} ({second} sec ago)"
-            return time_str
+            return f"-# :small_blue_diamond: Posted at <t:{time_ts}> ({self.timedelta_to_time_str(t_delta)} ago)"
+        return ""
+
+    @staticmethod
+    def timedelta_to_time_str(t_delta: timedelta) -> str:
+        totalMinute, second = divmod(t_delta.seconds, 60)
+        hour, minute = divmod(totalMinute, 60)
+        if t_delta >= timedelta(days=1):
+            return f"{t_delta.days} days {hour} hr {minute} min"
+        elif t_delta > timedelta(hours=1):
+            return f"{hour} hr {minute} min"
+        elif t_delta > timedelta(minutes=1):
+            return f"{minute} min"
         else:
-            return ""
+            return f"{second} sec"
 
     @staticmethod
     def is_emoji(val: str) -> bool:
