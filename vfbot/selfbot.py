@@ -48,7 +48,7 @@ class Selfbot(selfcord.Client):
         self.forward_history_only = False
         self.forward_history_from_channels: list[str | int] = []
         self._handshake_responder = HandshakeResponder(client=self)
-        self._sent_message_queue = FifoDict[int, list[SentWebhookDetails]](maxsize=1000)
+        self._sent_message_queue = FifoDict[int, list[SentWebhookDetails]](maxsize=500)
 
         if config.llm_config:
             self._llm_analyser = LLMAnalyser(config.llm_config)
@@ -120,6 +120,7 @@ class Selfbot(selfcord.Client):
             for id_ in detail.ids:
                 webhook.id = id_
                 webhook.delete()
+        self._sent_message_queue.pop(before.id)
 
         await self.on_message(after, is_forward=False)
         return True
