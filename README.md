@@ -28,27 +28,53 @@ pip install -r requirements.txt
 4. Set up your configuration:
    - Copy `config.example.json` to `config.json`
    - Edit `config.json` with your specific settings
-   - Remember to delete all comments
+   - Shared mappings (`channels`, `users`, `webhooks`, `telegram`) live at the root
+   - Each selfbot profile lives under `selfbots.<id>` with its own `self_token`, `keepalive`, `repost_settings`, and optional `llm_config`
 
 ## Running the Bot
 
-### Manual Start
-To start the bot manually, run:
+### Supervisor (recommended)
+
+One official Discord bot supervises all configured selfbots (keepalive handshakes, auto-restart, pull-only recovery):
+
 ```bash
 source .venv/bin/activate
-python run_bot.py
+python run_vfbot.py
 ```
 
-### Automatic Start
-For automatic startup, use the provided script:
+Or use automatic startup:
+
 ```bash
 ./autostart.sh
 ```
 
-### Arguments
-You may pass 'pull_since=' argument to pull history messages up to the defined date.
+### Manual selfbot
 
-The date can be defined as `%YYYY%M%D %H%m%S` or as a time delta `-6d3h2m1s` (You may omit any component e.g. `-3h` will also work).
+Run a single selfbot without the supervisor:
+
+```bash
+python run_selfbot.py bot_1
+```
+
+History pull for a specific selfbot:
+
+```bash
+python run_selfbot_pull.py bot_1
+```
+
+## Multi-selfbot configuration
+
+Define multiple entries under `selfbots` in `config.json`. Each selfbot needs:
+
+- Its own `self_token`
+- Its own `repost_settings`
+- Its own `keepalive.handshake` with **unique** `name` and `response_webhook` (separate channel and status message IDs are recommended)
+
+Shared at the root: `bot_token`, `channels`, `users`, `webhooks`, `test_mode`, `telegram`.
+
+### Migration from single-bot config
+
+Move root-level `self_token`, `keepalive`, `repost_settings`, and `llm_config` into a `selfbots` entry (e.g. `selfbots.bot_1`). Add additional selfbots as sibling entries under `selfbots`.
 
 ## License
 

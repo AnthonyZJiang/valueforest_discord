@@ -9,6 +9,7 @@ from discord_webhook import DiscordWebhook
 if TYPE_CHECKING:
     from ...keepalivebot import KeepAliveBot
     from ...selfbot import Selfbot
+    from ..vfconfig import KeepAliveConfig
 
 
 logger = logging.getLogger(__name__)
@@ -16,12 +17,12 @@ logger = logging.getLogger(__name__)
 
 class HandshakeInitiator:
 
-    def __init__(self, client: KeepAliveBot):
+    def __init__(self, client: KeepAliveBot, keepalive: KeepAliveConfig):
         self._client = client
-        self.name = client.config.keepalive.handshake_name
+        self.name = keepalive.handshake_name
         self.responder_name = self.name + " Responder"
-        self.channel_id = client.config.keepalive.handshake_channel_id
-        self.interval = client.config.keepalive.handshake_interval
+        self.channel_id = keepalive.handshake_channel_id
+        self.interval = keepalive.handshake_interval
 
         self._ts = None
         self._sent = False
@@ -80,7 +81,7 @@ class HandshakeResponder:
         if not self.webhook_url:
             raise ValueError("No webhook URL provided")
         self.webhook = DiscordWebhook(url=self.webhook_url)
-        
+
     def set_ready(self) -> None:
         self.webhook.username = self._client.user.display_name
         self.webhook.avatar_url = self._client.user.display_avatar.url
@@ -98,10 +99,7 @@ class HandshakeResponder:
             return
         ts = message.content.split("TS ")[1].strip()
         content = f"{self.name} Responder 🤝: <t:{ts}> TS {ts}"
-        # logger.debug("Handshake response sent")
         if self.webhook:
             self.webhook.content = content
             self.webhook.execute()
-        else:
-            pass  # Not implemented.
         return
