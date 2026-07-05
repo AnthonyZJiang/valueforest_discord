@@ -20,6 +20,16 @@
         "target_channel": "channel_bot_test_dump", // The channel to post messages to. Define it in channels. 
         "webhook": "webhook_bot_test_dump" // The webhook to post messages to. Define it in webhooks.
     },
+    "llm_config": {
+        "1277321989874385029": [
+            {
+                "webhook": "",
+                "ignore_ignored_posts": true,
+                "mention": ["everyone"],
+                "name": ""
+            }
+        ]
+    },
     "repost_settings": {
         "channel_to_monitor_1": [
             {

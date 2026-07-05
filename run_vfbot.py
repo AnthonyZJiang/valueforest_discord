@@ -2,6 +2,7 @@ from vfbot import Selfbot, DiscordBot, VFConfig, setup_logging
 import dotenv
 import os
 import logging
+import urllib.request
 
 VERSION: str = "SMK-3.0.1"
 
@@ -22,8 +23,6 @@ if CONFIG_FILE_HOST:
         if not GDRIVE_CONFIG_UID:
             logger.error("GDRIVE_CONFIG_UID is not set")
         else:
-            import urllib.request
-
             logger.info("Downloading config file from Google Drive...")
             file, _ = urllib.request.urlretrieve(
                 url=f"https://drive.google.com/uc?id={GDRIVE_CONFIG_UID}", filename=temp_file
