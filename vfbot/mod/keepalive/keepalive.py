@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
+import atexit
 import logging
 import asyncio
 
@@ -35,6 +36,11 @@ class KeepAlive:
             raise ValueError("No selfbots with keepalive enabled found in config")
 
         self._stop_requested = False
+
+        # Ensure child selfbot subprocesses are killed on interpreter exit, so a
+        # supervisor shutdown (Ctrl-C / SIGTERM handled by discord.py) does not leave
+        # orphaned selfbots connected to Discord.
+        atexit.register(self.stop)
 
     def stop(self) -> None:
         for worker in self._workers.values():
