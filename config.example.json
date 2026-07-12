@@ -16,7 +16,6 @@
                 "down_time_require_pull_only_seconds": 15,
                 "handshake": {
                     "channel_id": 1234567890,
-                    "name": "valueforest_a",
                     "interval": 30,
                     "timeout": 65,
                     "response_webhook": "https://discord.com/api/webhooks/1231234/WEBHOOK_URL"
@@ -60,11 +59,10 @@
                 "status_message_channel_id": 1234567891,
                 "down_time_require_pull_only_seconds": 15,
                 "handshake": {
-                    "channel_id": 1234567891,
-                    "name": "valueforest_b",
+                    "channel_id": 1234567890,
                     "interval": 30,
                     "timeout": 65,
-                    "response_webhook": "https://discord.com/api/webhooks/5678901/WEBHOOK_URL"
+                    "response_webhook": "https://discord.com/api/webhooks/1231234/WEBHOOK_URL"
                 }
             },
             "llm_config": {},

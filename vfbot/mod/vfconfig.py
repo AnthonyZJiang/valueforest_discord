@@ -29,15 +29,13 @@ class KeepAliveConfig:
         )
 
         _config_handshake = config.get("handshake", {})
-        self.handshake_name = _config_handshake.get("name", None)
         self.handshake_channel_id = _config_handshake.get("channel_id", None)
         self.handshake_interval = _config_handshake.get("interval", 30)
         self.handshake_timeout = _config_handshake.get("timeout", 65)
         self.handshake_response_webhook = _config_handshake.get("response_webhook", None)
 
         self.enabled = (
-            self.handshake_name is not None
-            and self.handshake_channel_id is not None
+            self.handshake_channel_id is not None
             and self.handshake_response_webhook is not None
         )
 

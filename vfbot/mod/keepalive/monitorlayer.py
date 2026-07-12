@@ -43,7 +43,9 @@ class MonitorLayer:
         self._config = config
         self._keepalive = keepalive
 
-        self.hs_initiator = HandshakeInitiator(client=self._client, keepalive=keepalive)
+        self.hs_initiator = HandshakeInitiator(
+            client=self._client, selfbot_id=selfbot_id, keepalive=keepalive
+        )
 
         self.status_message_channel_id = keepalive.status_message_channel_id
         self.status_message_webhook = keepalive.status_message_webhook

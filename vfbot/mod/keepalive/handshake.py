@@ -17,9 +17,9 @@ logger = logging.getLogger(__name__)
 
 class HandshakeInitiator:
 
-    def __init__(self, client: KeepAliveBot, keepalive: KeepAliveConfig):
+    def __init__(self, client: KeepAliveBot, selfbot_id: str, keepalive: KeepAliveConfig):
         self._client = client
-        self.name = keepalive.handshake_name
+        self.name = selfbot_id
         self.responder_name = self.name + " Responder"
         self.channel_id = keepalive.handshake_channel_id
         self.interval = keepalive.handshake_interval
@@ -71,7 +71,7 @@ class HandshakeResponder:
     def __init__(self, client: Selfbot):
         self.ready = False
         self._client = client
-        self.name = client.config.keepalive.handshake_name
+        self.name = client.config.selfbot_id
         self.initiator_name = self.name + " Initiator"
         self.channel_id = client.config.keepalive.handshake_channel_id
         self.interval = (
