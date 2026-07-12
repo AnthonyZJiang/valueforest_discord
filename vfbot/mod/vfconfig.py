@@ -22,6 +22,7 @@ class KeepAliveConfig:
             self.enabled = False
             return
         self.status_message_channel_id = config.get("status_message_channel_id", None)
+        self.status_message_webhook = config.get("status_message_webhook", None)
         self.status_message_id = config.get("status_message_id", None)
         self.down_time_require_pull_only_seconds = config.get(
             "down_time_require_pull_only_seconds", 15

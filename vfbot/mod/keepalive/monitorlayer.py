@@ -11,11 +11,13 @@ The monitor layer is responsible for:
 
 from __future__ import annotations
 from typing import TYPE_CHECKING
+import asyncio
 import logging
 from datetime import datetime
 import time
 
 import discord
+from discord_webhook import DiscordWebhook
 
 from .handshake import HandshakeInitiator
 
@@ -44,9 +46,11 @@ class MonitorLayer:
         self.hs_initiator = HandshakeInitiator(client=self._client, keepalive=keepalive)
 
         self.status_message_channel_id = keepalive.status_message_channel_id
-        if not self.status_message_channel_id:
+        self.status_message_webhook = keepalive.status_message_webhook
+        if not self._has_status_target():
             logger.warning(
-                "Status message channel ID is not set for selfbot '%s'.", selfbot_id
+                "Status message channel ID or webhook is not set for selfbot '%s'.",
+                selfbot_id,
             )
 
         self.status_message_id = keepalive.status_message_id
@@ -55,10 +59,25 @@ class MonitorLayer:
         self._next_handshake_timestamp = None
         self.last_ok_datetime = None
 
+    def _has_status_target(self) -> bool:
+        return bool(self.status_message_webhook or self.status_message_channel_id)
+
+    def _use_webhook_status(self) -> bool:
+        return bool(self.status_message_webhook)
+
+    def _waiting_status_content(self) -> str:
+        return f"[{self._selfbot_id}] 机器人上次握手成功: 等待机器人第一次握手..."
+
+    def _ok_status_content(self, current_time: int) -> str:
+        return (
+            f"[{self._selfbot_id}] 机器人上次握手成功: "
+            f"<t:{current_time}>, <t:{current_time}:R>"
+        )
+
     @property
     def handshake_timeout(self) -> bool:
         if self._next_handshake_timestamp is None or self._handshake_timeout_timestamp is None:
-            return False  # not yet sent handshake so not timeout
+            return False
         if time.perf_counter() > self._handshake_timeout_timestamp:
             return True
         return False
@@ -90,23 +109,76 @@ class MonitorLayer:
             )
 
     async def _update_status_message(self):
-        if not self.status_message_channel_id:
+        if not self._has_status_target():
             return
+
+        current_time = int(datetime.now().timestamp())
+        new_content = self._ok_status_content(current_time)
+
+        if self._use_webhook_status():
+            await self._update_status_message_webhook(new_content)
+            return
+
         if not self._status_message:
             await self._initialise_status_message()
             if not self._status_message:
                 logger.error("Fail to fetch status message for selfbot '%s'", self._selfbot_id)
                 return
-        current_time = int(datetime.now().timestamp())
-        new_content = (
-            f"[{self._selfbot_id}] 机器人上次握手成功: <t:{current_time}>, <t:{current_time}:R>"
-        )
         try:
             await self._status_message.edit(content=new_content)
         except Exception:
             logger.error(
                 "Error updating status message for selfbot '%s':", self._selfbot_id, exc_info=True
             )
+
+    async def _update_status_message_webhook(self, content: str) -> None:
+        if not self.status_message_id:
+            await self._create_status_message_webhook(content)
+            return
+        try:
+            await asyncio.to_thread(self._edit_status_message_webhook, content)
+        except Exception:
+            logger.warning(
+                "Failed to edit webhook status message for selfbot '%s', recreating...",
+                self._selfbot_id,
+                exc_info=True,
+            )
+            self.status_message_id = None
+            await self._create_status_message_webhook(content)
+
+    def _edit_status_message_webhook(self, content: str) -> None:
+        webhook = DiscordWebhook(
+            url=self.status_message_webhook,
+            id=self.status_message_id,
+            content=content,
+        )
+        webhook.edit()
+
+    async def _create_status_message_webhook(self, content: str) -> None:
+        message_id = await asyncio.to_thread(self._send_status_message_webhook, content)
+        if not message_id:
+            logger.error(
+                "Failed to create webhook status message for selfbot '%s'", self._selfbot_id
+            )
+            return
+        logger.debug("Webhook status message created for selfbot '%s'.", self._selfbot_id)
+        self.status_message_id = message_id
+        self._config.update(
+            self._selfbot_id,
+            keepalive={"status_message_id": message_id},
+        )
+
+    def _send_status_message_webhook(self, content: str) -> int | None:
+        webhook = DiscordWebhook(url=self.status_message_webhook, content=content)
+        response = webhook.execute()
+        if response is None:
+            return None
+        if webhook.id:
+            return webhook.id
+        try:
+            return int(response.json()["id"])
+        except (AttributeError, KeyError, TypeError, ValueError):
+            return None
 
     async def _initialise_status_message(self) -> discord.Message:
         channel = self._client.get_cached_channel(self.status_message_channel_id)
@@ -116,9 +188,7 @@ class MonitorLayer:
             self._status_message = await self._create_status_message(channel)
 
     async def _create_status_message(self, channel: discord.TextChannel):
-        self._status_message = await channel.send(
-            f"[{self._selfbot_id}] 机器人上次握手成功: 等待机器人第一次握手..."
-        )
+        self._status_message = await channel.send(self._waiting_status_content())
         if self._status_message:
             logger.debug("Status message created for selfbot '%s'.", self._selfbot_id)
             self.status_message_id = self._status_message.id

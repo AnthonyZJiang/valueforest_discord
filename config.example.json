@@ -12,6 +12,7 @@
             "self_token": "YOUR_SELF_TOKEN",
             "keepalive": {
                 "status_message_channel_id": 1234567890,
+                "status_message_webhook": "https://discord.com/api/webhooks/1231234/STATUS_WEBHOOK_URL",
                 "down_time_require_pull_only_seconds": 15,
                 "handshake": {
                     "channel_id": 1234567890,
