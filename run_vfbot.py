@@ -3,6 +3,7 @@ import dotenv
 import os
 import logging
 import urllib.request
+import sys
 
 VERSION: str = "SMK-3.0.1"
 
@@ -40,22 +41,33 @@ else:
 logger.info("Bot version %s...", VERSION)
 config = VFConfig("config.json", keepalive_only=True)
 
-if config.keepalive.enabled:
+if config.keepalive_enabled:
     bot = DiscordBot(config)
     try:
         bot.run(token=config.bot_token, log_handler=stream_handler)
     except KeyboardInterrupt:
         logger.info("Bot stopped by user.")
         bot.stop()
-    except Exception as e:
+    except Exception:
         logger.error("Error starting bot", exc_info=True)
 else:
-    config.read_selfbot_config()
+    selfbot_id = sys.argv[1] if len(sys.argv) > 1 else None
+    if not selfbot_id:
+        selfbot_ids = list(config.selfbots.keys())
+        if len(selfbot_ids) == 1:
+            selfbot_id = selfbot_ids[0]
+        else:
+            logger.error(
+                "Keepalive supervisor is not enabled. Pass a selfbot id: "
+                "python run_vfbot.py <selfbot_id>"
+            )
+            sys.exit(1)
+    config.read_selfbot_config(selfbot_id)
     bot = Selfbot(config)
     try:
         bot.run(token=config.self_token, log_handler=stream_handler)
     except KeyboardInterrupt:
         logger.info("Bot stopped by user.")
         bot.stop()
-    except Exception as e:
+    except Exception:
         logger.error("Error starting bot", exc_info=True)
