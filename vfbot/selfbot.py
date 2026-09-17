@@ -16,6 +16,7 @@ from .mod.keepalive.handshake import HandshakeResponder
 from .mod.llm.gpt import LLMAnalyser
 from .mod.vfmessage import VFMessage, JumpLinkDetails
 from .mod.utils import FifoDict
+from .plugin.pushplus import PushPlusPlugin
 
 if TYPE_CHECKING:
     from .mod.vfconfig import VFConfig
@@ -50,6 +51,7 @@ class Selfbot(selfcord.Client):
         self.forward_history_from_channels: list[str | int] = []
         self._handshake_responder = HandshakeResponder(client=self)
         self._sent_message_queue = FifoDict[int, list[SentWebhookDetails]](maxsize=500)
+        self._pushplus = PushPlusPlugin()
 
         if config.llm_config:
             self._llm_analyser = LLMAnalyser(config.llm_config)
@@ -108,6 +110,7 @@ class Selfbot(selfcord.Client):
                 continue
             if author_config:
                 c["author"] = author_config
+            await self._pushplus.notify(message, c, is_forward=is_forward)
             sent = await self._construct_and_send_message(message, c)
         return sent
 

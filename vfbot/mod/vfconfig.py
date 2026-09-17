@@ -241,12 +241,30 @@ class VFConfig:
                 channel_config["webhook"].append(webhook_id)
                 pop_from_checklist(webhook_names_checklist, webhook_name)
 
+        def set_pushplus_config(
+            channel_config: dict, pushplus_mapping: dict, pushplus_names_checklist: list[str]
+        ) -> None:
+            if not (target_names := channel_config.get("pushplus", None)):
+                return
+            if not isinstance(target_names, list):
+                target_names = [target_names]
+            channel_config["pushplus"] = []
+            for name in target_names:
+                dest = pushplus_mapping.get(name)
+                if not dest:
+                    logger.error("PushPlus %s not found in pushplus list.", name)
+                    continue
+                channel_config["pushplus"].append(dest)
+                pop_from_checklist(pushplus_names_checklist, name)
+
         channel_mapping: dict[str, str] = self._config["channels"]
         author_mapping: dict[str, dict] = self._config["users"]
         webhook_mapping: dict[str, str] = self._config.get("webhooks", {})
+        pushplus_mapping: dict[str, dict] = self._config.get("pushplus", {})
         channel_names_checklist = list[str](channel_mapping.keys())
         author_names_checklist = list[str](author_mapping.keys())
         webhook_names_checklist = list[str](webhook_mapping.keys())
+        pushplus_names_checklist = list[str](pushplus_mapping.keys())
 
         for k, channel_configs in repost_settings_source.items():
             if not (channel_id := channel_mapping.get(k, None)):
@@ -267,6 +285,7 @@ class VFConfig:
                 set_role_highlight_config(c_config)
                 set_channel_config(c_config, channel_mapping, channel_names_checklist)
                 set_webhook_config(c_config, webhook_mapping, webhook_names_checklist)
+                set_pushplus_config(c_config, pushplus_mapping, pushplus_names_checklist)
                 this_channel_configs.append(c_config)
 
             if len(this_channel_configs) == 0:
@@ -284,6 +303,10 @@ class VFConfig:
             logger.warning("The following authors are not used: %s", author_names_checklist)
         if len(webhook_names_checklist) > 0:
             logger.warning("The following webhooks are not used: %s", webhook_names_checklist)
+        if len(pushplus_names_checklist) > 0:
+            logger.warning(
+                "The following pushplus targets are not used: %s", pushplus_names_checklist
+            )
         return repost_settings
 
     def get(self, key, default=None):
