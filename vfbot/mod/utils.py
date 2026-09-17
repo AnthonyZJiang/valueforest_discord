@@ -26,8 +26,10 @@ def setup_logging(log_file: str = None) -> logging.Handler:
     if not os.path.exists(os.path.dirname(log_file)):
         os.makedirs(os.path.dirname(log_file))
 
+    log_base = log_file.removesuffix(".log")
+
     file_handler_info = TimedRotatingFileHandler(
-        log_file.rstrip(".log") + "_warn.log", when="D", interval=1, backupCount=7
+        log_base + "_warn.log", when="D", interval=1, backupCount=7
     )
     file_handler_info.setLevel(logging.WARNING)
     f_format = logging.Formatter(
@@ -36,7 +38,7 @@ def setup_logging(log_file: str = None) -> logging.Handler:
     file_handler_info.setFormatter(f_format)
 
     file_handler_debug = TimedRotatingFileHandler(
-        log_file.rstrip(".log") + "_debug.log", when="D", interval=1, backupCount=7
+        log_base + "_debug.log", when="D", interval=1, backupCount=7
     )
     file_handler_debug.setLevel(logging.DEBUG)
     f_format = logging.Formatter(

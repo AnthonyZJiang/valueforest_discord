@@ -7,6 +7,7 @@ import re
 import asyncio
 from collections import namedtuple
 from difflib import get_close_matches
+import sys
 
 import selfcord
 from discord_webhook import DiscordWebhook
@@ -72,6 +73,9 @@ class Selfbot(selfcord.Client):
             await self._forward_history_messages(
                 after=self.forward_history_since, before=self.forward_history_before
             )
+            await self.close()
+            print("Selfbot pull only completed.")
+            sys.exit(0)
 
     async def on_message(self, message: selfcord.Message, is_forward: bool = False) -> bool:
         # when in forwarding history only mode, ignore any new messages
